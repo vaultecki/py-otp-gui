@@ -29,13 +29,13 @@ class PasswordWindow(tkinter.Toplevel):
         self.password_entry.pack()
 
         #Create a button to close the window
-        tkinter.Button(self, text="Try PW", font=('Helvetica bold', 10),command=self.sendpassword).pack(pady=20)
+        tkinter.Button(self, text="Try PW", font=('Helvetica bold', 10), command=self.send_password).pack(pady=20)
 
     def run(self):
         self.transient(self.master)
         self.grab_set()
 
-    def sendpassword(self):
+    def send_password(self):
         self.pw_entered.emit(self.password_entry.get())
 
     def close(self, value):
