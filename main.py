@@ -90,9 +90,9 @@ class App(tkinter.Tk):
         self.i = self.i + 1
 
     def _update_all_otps(self):
-        print(f"it's time {time.time()}")
+        logger.info(f"it's time {time.time()}")
         for uri, number in self.otp_numbers.items():
-            print(f"time to update uri {uri} and number {number.get()}")
+            logger.debug(f"time to update uri {uri} and number {number.get()}")
             number.set(self.otp.gen_otp_number(uri, time.time()))
         self.after(5000, self._update_all_otps)
 
