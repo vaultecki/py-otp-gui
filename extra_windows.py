@@ -55,6 +55,7 @@ class AddOtp(tkinter.Toplevel):
     def on_click_add(self):
         logger.debug("click add")
         self.master.otp.add_uri(self.entry_text.get(), time.time())
+        self.master.otp.save()
         self.master.update_rows()
         self.destroy()
 
@@ -88,3 +89,5 @@ class ChangePw(tkinter.Toplevel):
         else:
             if tkinter.messagebox.askyesno("PW Änderung bestätigen", "Möchtest du das Passwort wirklich ändern"):
                 self.master.otp.set_new_password(self.entry_password_1.get())
+                self.master.otp.save()
+                self.destroy()

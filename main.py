@@ -115,6 +115,7 @@ class App(tkinter.Tk):
         # Bestätigungsdialog anzeigen
         if tkinter.messagebox.askyesno("Löschen bestätigen", f"Möchtest du '{uri_to_delete}' wirklich löschen?"):
             self.otp.delete_uri(uri_to_delete)
+            self.otp.save()
             self.update_rows()
 
     def on_click_add(self):
@@ -123,7 +124,7 @@ class App(tkinter.Tk):
             extra_windows.AddOtp(self)
 
     def on_click_pw_change(self):
-        logger.info(f"change password for {self.otp.data}")
+        logger.info(f"change password for OTP")
         if self.otp.is_unlocked:
             extra_windows.ChangePw(self)
 

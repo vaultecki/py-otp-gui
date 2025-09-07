@@ -46,7 +46,6 @@ class OtpClass:
         if self.is_unlocked:
             salt = crypt_utils.CryptoUtils.decode_base64(self.raw_config_data.get("salt", ""))
             self.key = crypt_utils.CryptoUtils.derive_key(password, salt)
-            self._write_config()
 
     def _decrypt(self):
         logger.debug("start decrypting encrypt data")
@@ -90,7 +89,7 @@ class OtpClass:
             # Gib None oder ein leeres Dict zurück, um den "nicht gefunden"-Fall zu signalisieren
             return {}
 
-    def _write_config(self):
+    def save(self):
         logger.info("writing logs")
         if self.decrypted_data:
             text_to_log = json.dumps(self.decrypted_data)
@@ -109,7 +108,6 @@ class OtpClass:
         if uri not in self.decrypted_data and self.key:
             logger.debug("add uri: {} - date: {}".format(uri, date))
             self.decrypted_data.update({uri: {"date": date}})
-            self._write_config()
 
     def gen_otp_number(self, uri, date=time.time()):
         logger.debug("gen one time number for otp uri: {}".format(uri))
@@ -133,7 +131,6 @@ class OtpClass:
         # Sicher aus beiden Dictionaries entfernen
         if uri in self.decrypted_data:
             del self.decrypted_data[uri]
-            self._write_config()
 
 
 if __name__ == '__main__':
@@ -147,7 +144,7 @@ if __name__ == '__main__':
     t1 = 1755068753.2957523
     uri = ""
     #test.add_uri(uri, t1)
-    #test.write_config()
+    #test.save()
     #number = test.gen_otp_number(uri=uri)
     #logger.info("one time number for uri: {} is {}".format(uri, number))
     uris = test.get_uri()
