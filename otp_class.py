@@ -19,11 +19,10 @@ class OtpClass:
         self.key = None
         self.is_unlocked = False
         self.decrypted_data = {}
-        self.totp_objects = {}
-        self.data = self._read_config()
+        self.raw_config_data = self._read_config()
 
         # Wenn die Konfiguration leer ist, erstelle eine neue.
-        if not self.data:
+        if not self.raw_config_data:
             self.is_unlocked = True  # Ein neuer Tresor ist sofort entsperrt
             self.decrypted_data = {}  # Explizit initialisieren
             self._create_new_salt()
@@ -34,26 +33,32 @@ class OtpClass:
     def _create_new_salt(self):
         """Erzeugt ein neues Salt für einen neuen Tresor."""
         salt = crypt_utils.CryptoUtils.encode_base64(crypt_utils.CryptoUtils.generate_salt())
-        self.data["salt"] = salt
+        self.raw_config_data.update({"salt": salt})
 
     def unlock_with_password(self, password):
         logger.info("set password")
-        salt = crypt_utils.CryptoUtils.decode_base64(self.data.get("salt", ""))
+        salt = crypt_utils.CryptoUtils.decode_base64(self.raw_config_data.get("salt", ""))
         self.key = crypt_utils.CryptoUtils.derive_key(password, salt)
         self._decrypt()
 
     def set_new_password(self, password):
         logger.info("set password")
         if self.is_unlocked:
-            salt = crypt_utils.CryptoUtils.decode_base64(self.data.get("salt", ""))
+            salt = crypt_utils.CryptoUtils.decode_base64(self.raw_config_data.get("salt", ""))
             self.key = crypt_utils.CryptoUtils.derive_key(password, salt)
             self._write_config()
 
     def _decrypt(self):
         logger.debug("start decrypting encrypt data")
-        if self.key and self.data.get("encrypted", ""):
+        if self.raw_config_data.get("encrypted", ""):
             try:
-                encrypted = crypt_utils.CryptoUtils.decode_base64(self.data.get("encrypted", ""))
+                text_to_load = self.raw_config_data.get("encrypted", "")
+                self.decrypted_data = json.loads(text_to_load)
+            except (json.JSONDecodeError, TypeError):
+                logger.info("laden ohne passwort schlug fehl")
+        if self.key and self.raw_config_data.get("encrypted", ""):
+            try:
+                encrypted = crypt_utils.CryptoUtils.decode_base64(self.raw_config_data.get("encrypted", ""))
                 text_to_load = crypt_utils.CryptoUtils.decrypt(encrypted, self.key)
                 self.decrypted_data = json.loads(text_to_load)
             except nacl.exceptions.CryptoError:
@@ -62,7 +67,6 @@ class OtpClass:
             except (json.JSONDecodeError, TypeError):
                 raise exceptions.ConfigFileError("Die Konfigurationsdatei scheint beschädigt zu sein.")
             self.is_unlocked = True
-            self.__gen_otp_uri()
 
     @staticmethod
     def _get_config_file_path():
@@ -93,10 +97,10 @@ class OtpClass:
             if self.key:
                 encrypted = crypt_utils.CryptoUtils.encrypt(text_to_log.encode("utf-8"), self.key)
                 text_to_log = crypt_utils.CryptoUtils.encode_base64(encrypted)
-            self.data.update({"encrypted": text_to_log})
+            self.raw_config_data.update({"encrypted": text_to_log})
         try:
             with open(self.config_filename, "w", encoding="utf-8") as config_file:
-                json.dump(self.data, config_file, indent=4)
+                json.dump(self.raw_config_data, config_file, indent=4)
         except Exception as e:
             logger.error("writing config to file error: {}".format(e))
 
@@ -105,21 +109,14 @@ class OtpClass:
         if uri not in self.decrypted_data and self.key:
             logger.debug("add uri: {} - date: {}".format(uri, date))
             self.decrypted_data.update({uri: {"date": date}})
-            self.totp_objects.update({uri: pyotp.parse_uri(uri)})
             self._write_config()
-
-    def __gen_otp_uri(self):
-        logger.debug("gen otp for all uris from {}".format(self.decrypted_data))
-        if self.decrypted_data:
-            for uri in self.decrypted_data.keys():
-                logger.debug("gen otp for uri {}".format(uri))
-                self.totp_objects.update({uri: pyotp.parse_uri(uri)})
 
     def gen_otp_number(self, uri, date=time.time()):
         logger.debug("gen one time number for otp uri: {}".format(uri))
-        if self.totp_objects.get(uri, False):
-            number = self.totp_objects.get(uri).at(date)
-            return number
+        if uri in self.decrypted_data:
+            # Erzeuge das Objekt nur für diesen einen Moment
+            totp = pyotp.parse_uri(uri)
+            return totp.at(date)
         return -1
 
     def created(self, uri):
@@ -129,7 +126,7 @@ class OtpClass:
             return 0
 
     def get_uri(self):
-        return self.totp_objects.keys()
+        return self.decrypted_data.keys()
 
     def delete_uri(self, uri: str):
         logger.debug(f"Deleting uri: {uri}")
@@ -137,8 +134,6 @@ class OtpClass:
         if uri in self.decrypted_data:
             del self.decrypted_data[uri]
             self._write_config()
-        if uri in self.totp_objects:
-            del self.totp_objects[uri]
 
 
 if __name__ == '__main__':
