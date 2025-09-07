@@ -2,6 +2,8 @@ import tkinter
 import logging
 import threading
 import time
+
+import PySignal
 from PIL import Image
 
 # import from project
@@ -11,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class PasswordWindow(tkinter.Toplevel):
+    pw_entered = PySignal.ClassSignal()
     def __init__(self, master):
         super().__init__(master)
         self.master = master
@@ -34,11 +37,11 @@ class PasswordWindow(tkinter.Toplevel):
 
     def send_password(self):
         try:
-            self.master.otp.use_password(self.password_entry.get())
+            self.master.otp.unlock_with_password(self.password_entry.get())
         except Exception as e:
             print(f"error {e}")
             return
-        self.master.update_rows()
+        self.pw_entered.emit()
         print("try to close window")
         self.destroy()
         self.update()
@@ -47,49 +50,40 @@ class PasswordWindow(tkinter.Toplevel):
 class App(tkinter.Tk):
     def __init__(self):
         super().__init__()
-
         self.title("Py OTP GUI")
 
         self.otp = otp_class.OtpClass()
 
         self.i = 0
         self.stop = False
-        self.otp_numbers = []
-        self.timers = []
+        self.otp_numbers = {}
         self.password_window = PasswordWindow(self)
+        self.password_window.pw_entered.connect(self.update_rows)
 
         self.add_button_txt = tkinter.Button(self, text="add from string")
         self.add_button_txt.grid(row=0, column=0)
         self.add_button_qr = tkinter.Button(self, text="add from qr")
         self.add_button_qr.grid(row=0, column=1)
 
-        if not self.otp.status():
+        if not self.otp.is_unlocked:
             self.ask_for_password()
 
     def create_row(self, uri):
         number_str = tkinter.StringVar(self, self.otp.gen_otp_number(uri))
-        self.otp_numbers.append(number_str)
+        self.otp_numbers.update({uri: number_str})
         tkinter.Entry(self, textvariable=number_str, state="readonly", width=8).grid(row=self.i, column=0)
         uri_string = tkinter.StringVar(self, uri)
         tkinter.Entry(self, textvariable=uri_string, state="readonly", width=80).grid(row=self.i, column=1)
         time_str = time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime(self.otp.created(uri)))
         tkinter.Label(self, text="created {}".format(time_str)).grid(row=self.i, column=2)
         tkinter.Button(self, text="delete", command=self.delete).grid(row=self.i, column=3)
-        i = self.i
         self.i = self.i + 1
-        interval = self.otp.interval(uri)-2
-        #t = threading.Thread(target=self.update_number, args=(interval, i, uri))
-        #self.timers.append(t)
-        #t.start()
-        return
 
-    def update_number(self, interval, i, uri):
-        if i < len(self.otp_numbers):
-            while self.timers and not self.stop:
-                time.sleep(interval)
-                print(f"it's time {time.time()}")
-                print(self.otp_numbers[i].get())
-                self.otp_numbers[i].set(self.otp.gen_otp_number(uri, time.time()))
+    def _update_all_otps(self):
+        print(f"it's time {time.time()}")
+        for uri, number in self.otp_numbers.items():
+            print(f"time to update uri {uri} and number {number.get()}")
+            number.set(self.otp.gen_otp_number(uri, time.time()))
 
     def ask_for_password(self):
         logger.info("ask for password")
@@ -98,13 +92,17 @@ class App(tkinter.Tk):
 
     def update_rows(self):
         # for testing purposes - remove later
-        print(f"otp status is {self.otp.status()}")
+        if not self.otp.is_unlocked:
+            return
+        print(f"otp status is {self.otp.is_unlocked}")
         for uri in self.otp.get_uri():
             self.create_row(uri)
         self.add_button_txt.grid(row=self.i, column=1)
         self.add_button_qr.grid(row=self.i, column=2)
         self.add_button_change_pw = tkinter.Button(self, text="change password")
         self.add_button_change_pw.grid(row=self.i, column=0)
+
+        self.after(5000, self._update_all_otps)
 
     def delete(self):
         logger.info("delete")

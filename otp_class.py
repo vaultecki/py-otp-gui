@@ -1,55 +1,52 @@
-import base64
-import cv2
 import json
 import logging
 import os
+import nacl.exceptions
 import pyotp
 import time
-import datetime
 
 import crypt_utils
+import exceptions
 
 logger = logging.getLogger(__name__)
 
-class QRCodeNotFoundError(Exception):
-    pass
 
 class OtpClass:
     def __init__(self):
         logger.info("init otp class")
         # init variables
-        self.config_filename = False
-        self.data = {}
-        self.decrypted = {}
+        self.config_filename = self._get_config_file_path()
+        self.key = None
+        self.is_unlocked = False
+        self.decrypted_data = {}
         self.totp_objects = {}
-        # read config and update variables
-        self.read_config()
-        if not self.data.get("salt", ""):
-            salt = base64.b64encode(crypt_utils.CryptoUtils.generate_salt()).decode("ascii")
-            self.data.update({"salt": salt})
-        self.key = False
-        self.__decrypt()
+        self.data = self._read_config()
 
-    def use_password(self, password):
+    def unlock_with_password(self, password):
         logger.info("set password")
-        salt = base64.b64decode(self.data.get("salt", ""))
+        salt = crypt_utils.CryptoUtils.decode_base64(self.data.get("salt", ""))
         self.key = crypt_utils.CryptoUtils.derive_key(password, salt)
-        self.__decrypt()
+        self._decrypt()
 
-    def __decrypt(self):
+    def _decrypt(self):
         logger.debug("start decrypting encrypt data")
         if self.key and self.data.get("encrypted", ""):
             try:
-                encrypted = base64.b64decode(self.data.get("encrypted", ""))
+                encrypted = crypt_utils.CryptoUtils.decode_base64(self.data.get("encrypted", ""))
                 text_to_load = crypt_utils.CryptoUtils.decrypt(encrypted, self.key)
                 self.decrypted = json.loads(text_to_load)
-            except:
-                raise TypeError("password incorrect")
+            except nacl.exceptions.CryptoError:
+                # Gib dem Aufrufer eine klare Rückmeldung
+                raise InvalidPasswordError("Entschlüsselung fehlgeschlagen. Wahrscheinlich ist das Passwort falsch.")
+            except (json.JSONDecodeError, TypeError):
+                raise ConfigFileError("Die Konfigurationsdatei scheint beschädigt zu sein.")
             print(self.decrypted)
+            self.is_unlocked = True
             self.__gen_otp_uri()
 
-    def read_config(self):
-        logger.info("read config")
+    @staticmethod
+    def _get_config_file_path():
+        logger.info("create config file name")
         home_dir = os.path.expanduser("~")
         if os.name in ["nt", "windows"]:
             home_dir = os.path.join(home_dir, "AppData\\Local\\ThaOTP")
@@ -57,7 +54,9 @@ class OtpClass:
             home_dir = os.path.join(home_dir, ".config/ThaOTP")
         if not os.path.exists(home_dir):
             os.makedirs(home_dir)
-        self.config_filename = os.path.join(home_dir, "config.json")
+        return os.path.join(home_dir, "config.json")
+
+    def _read_config(self):
         logger.debug("open {}".format(self.config_filename))
         try:
             with open(self.config_filename, "r", encoding="utf-8") as config_file:
@@ -65,8 +64,14 @@ class OtpClass:
         except IOError as err:
             logger.warning("Oops, error: {}".format(err))
             data = {}
-        self.data = data
-        logger.debug(self.data)
+            self.is_unlocked = True
+
+        if not data.get("salt", ""):
+            salt = crypt_utils.CryptoUtils.encode_base64(crypt_utils.CryptoUtils.generate_salt())
+            data.update({"salt": salt})
+
+        logger.debug(data)
+        return data
 
     def write_config(self):
         logger.info("writing logs")
@@ -76,7 +81,7 @@ class OtpClass:
             if self.key:
                 encrypted = crypt_utils.CryptoUtils.encrypt(text_to_log.encode("utf-8"), self.key)
                 print(encrypted)
-                text_to_log = base64.b64encode(encrypted).decode("ascii")
+                text_to_log = crypt_utils.CryptoUtils.encode_base64(encrypted)
                 print(text_to_log)
             self.data.update({"encrypted": text_to_log})
             print(self.data)
@@ -122,38 +127,18 @@ class OtpClass:
     def get_uri(self):
         return self.totp_objects.keys()
 
-    def status(self):
-        if self.key or "encrypted" not in self.data.keys():
-            return True
-        return False
-
-
-def read_uri_from_qr_image(filepath: str) -> str:
-    """Liest ein QR-Code-Bild und gibt den enthaltenen Text zurück."""
-    image = cv2.imread(filepath)
-    if image is None:
-        raise cv2.error("Bild konnte nicht gelesen werden.")  # OpenCV gibt None zurück, nicht immer einen Error
-
-    detector = cv2.QRCodeDetector()
-    decoded_text, _, _ = detector.detectAndDecode(image)
-
-    if not decoded_text:
-        raise QRCodeNotFoundError("Im Bild wurde kein QR-Code gefunden.")
-
-    return decoded_text
-
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     logger.info("moin")
 
     test = OtpClass()
-    test.use_password("test")
+    test.unlock_with_password("test")
     filename = "Download.png"
-    uri = read_uri_from_qr_image(filename)
+    #uri = read_uri_from_qr_image(filename)
     t1 = 1755068753.2957523
-    #uri = ""
-    test.add_uri(uri, t1)
+    uri = ""
+    #test.add_uri(uri, t1)
     #test.write_config()
     #number = test.gen_otp_number(uri=uri)
     #logger.info("one time number for uri: {} is {}".format(uri, number))

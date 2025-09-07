@@ -1,3 +1,4 @@
+import base64
 import logging
 import nacl.secret
 import nacl.utils
@@ -33,6 +34,14 @@ class CryptoUtils:
         logger.debug("decrypt data")
         box = nacl.secret.SecretBox(key)
         return box.decrypt(encrypted_data)
+
+    @staticmethod
+    def encode_base64(data_bytes:bytes) -> str:
+        return base64.b64encode(data_bytes).decode("ascii")
+
+    @staticmethod
+    def decode_base64(data_str:str) -> bytes:
+        return base64.b64decode(data_str)
 
 
 if __name__ == '__main__':
