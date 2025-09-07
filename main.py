@@ -13,10 +13,9 @@ logger = logging.getLogger(__name__)
 class PasswordWindow(tkinter.Toplevel):
     def __init__(self, master,  on_success):
         super().__init__(master)
-        self.master = master
         logger.info("open password input display window")
         #Set the geometry of frame
-        self.geometry("600x250")
+        self.geometry(self.master.otp.raw_config_data.get("pw_enter_geometry", "600x250"))
         self.title("Password Window")
         self.on_success = on_success
 
@@ -36,6 +35,7 @@ class PasswordWindow(tkinter.Toplevel):
         try:
             self.master.otp.unlock_with_password(self.password_entry.get())  # Umbenannte Methode
             self.on_success()
+            self.master.otp.raw_config_data.update({"pw_enter_geometry": self.geometry()})
             self.destroy()
         except exceptions.InvalidPasswordError as e:
             # Zeige dem Benutzer eine Fehlermeldung
@@ -48,6 +48,10 @@ class App(tkinter.Tk):
     def __init__(self):
         super().__init__()
         self.title("Py OTP GUI")
+
+        self.otp = otp_class.OtpClass()
+        self.otp_numbers = {}
+        self.geometry(self.otp.raw_config_data.get("main_geometry", None))
 
         # --- Statischer Frame für die Kontroll-Buttons ---
         control_frame = tkinter.Frame(self)
@@ -62,9 +66,6 @@ class App(tkinter.Tk):
         # --- Frame für die dynamische OTP-Liste ---
         self.otp_list_frame = tkinter.Frame(self)
         self.otp_list_frame.pack(side="top", fill="both", expand=True)
-
-        self.otp = otp_class.OtpClass()
-        self.otp_numbers = {}
 
         if not self.otp.is_unlocked:
             logger.info("ask for password")
@@ -101,6 +102,7 @@ class App(tkinter.Tk):
             self.create_row(uri, index)  # create_row muss jetzt in self.otp_list_frame zeichnen
         # Die Buttons müssen nicht mehr neu gezeichnet werden!
         self._update_all_otps()
+        self.otp.raw_config_data.update({"main_geometry": self.geometry()})
 
     def delete(self, uri_to_delete):
         logger.info(f"Attempting to delete {uri_to_delete}")

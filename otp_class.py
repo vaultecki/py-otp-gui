@@ -1,6 +1,8 @@
 import json
 import logging
 import os
+from configparser import ParsingError
+
 import nacl.exceptions
 import pyotp
 import time
@@ -105,8 +107,12 @@ class OtpClass:
 
     def add_uri(self, uri, date=time.time()):
         logger.debug("add uri: {}".format(uri))
-        if uri not in self.decrypted_data and self.key:
+        if uri not in self.decrypted_data and self.key and uri:
             logger.debug("add uri: {} - date: {}".format(uri, date))
+            try:
+                pyotp.parse_uri(uri)
+            except Exception as err:
+                raise exceptions.UriError(f"Could not read or parse uri: {err}.")
             self.decrypted_data.update({uri: {"date": date}})
 
     def gen_otp_number(self, uri, date=time.time()):
@@ -145,6 +151,11 @@ if __name__ == '__main__':
     #number = test.gen_otp_number(uri=uri)
     #logger.info("one time number for uri: {} is {}".format(uri, number))
     urls = test.get_uri()
+    #print(urls)
+    #test.delete_uri("")
+    #urls = test.get_uri()
+    #print(urls)
     for url in urls:
         logger.info("one time number for uri: {} is {}".format(url, test.gen_otp_number(url, t1)))
         logger.info("one time number for uri: {} is {}".format(url, test.gen_otp_number(url)))
+    #test.save()

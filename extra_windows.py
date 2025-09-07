@@ -3,6 +3,7 @@ import time
 import tkinter
 from tkinter import filedialog, messagebox
 
+import exceptions
 import service
 
 logger = logging.getLogger(__name__)
@@ -13,6 +14,7 @@ class AddOtp(tkinter.Toplevel):
         super().__init__(master)
         logger.info("add otp entry display window")
         self.title("Add Otp Entry")
+        self.geometry(self.master.otp.raw_config_data.get("otp_add_geometry", None))
 
         tkinter.Label(self, text="Hi").grid(row=0, column=0, padx=5, pady=5)
 
@@ -54,7 +56,11 @@ class AddOtp(tkinter.Toplevel):
 
     def on_click_add(self):
         logger.debug("click add")
-        self.master.otp.add_uri(self.entry_text.get(), time.time())
+        try:
+            self.master.otp.add_uri(self.entry_text.get(), time.time())
+        except exceptions.UriError as err:
+            tkinter.messagebox.showerror("error", f"uri konnte nicht hinzugefügt werden: {err}")
+        self.master.otp.raw_config_data.update({"otp_add_geometry": self.geometry()})
         self.master.otp.save()
         self.master.update_rows()
         self.destroy()
@@ -64,6 +70,7 @@ class ChangePw(tkinter.Toplevel):
         super().__init__(master)
         logger.info("change pw")
         self.title("Change PW")
+        self.geometry(self.master.otp.raw_config_data.get("pw_change_geometry", None))
 
         tkinter.Label(self, text="set new pw").grid(row=0, column=0)
 
@@ -89,5 +96,6 @@ class ChangePw(tkinter.Toplevel):
         else:
             if tkinter.messagebox.askyesno("PW Änderung bestätigen", "Möchtest du das Passwort wirklich ändern"):
                 self.master.otp.set_new_password(self.entry_password_1.get())
+                self.master.otp.raw_config_data.update({"pw_change_geometry": self.geometry()})
                 self.master.otp.save()
                 self.destroy()

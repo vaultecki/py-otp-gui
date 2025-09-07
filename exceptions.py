@@ -9,3 +9,7 @@ class InvalidPasswordError(Exception):
 class ConfigFileError(Exception):
     """Wird bei Problemen mit der Konfigurationsdatei ausgelöst."""
     pass
+
+class UriError(Exception):
+    """Wird bei Problemen mit der Uri für OTP ausgelöst."""
+    pass
