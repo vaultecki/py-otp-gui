@@ -73,16 +73,11 @@ class OtpClass:
         logger.debug("open {}".format(self.config_filename))
         try:
             with open(self.config_filename, "r", encoding="utf-8") as config_file:
-                data = json.load(config_file)
+                return json.load(config_file)
         except (IOError, json.JSONDecodeError) as err:
             logger.warning(f"Could not read or parse config file: {err}. Assuming new configuration.")
             # Gib None oder ein leeres Dict zurück, um den "nicht gefunden"-Fall zu signalisieren
             return {}
-
-        if not data.get("salt", ""):
-            salt = crypt_utils.CryptoUtils.encode_base64(crypt_utils.CryptoUtils.generate_salt())
-            data.update({"salt": salt})
-        return data
 
     def write_config(self):
         logger.info("writing logs")
