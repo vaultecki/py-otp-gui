@@ -50,30 +50,43 @@ class App(tkinter.Tk):
         super().__init__()
         self.title("Py OTP GUI")
 
-        self.otp = otp_class.OtpClass()
+        # --- Statischer Frame für die Kontroll-Buttons ---
+        control_frame = tkinter.Frame(self)
+        control_frame.pack(side="bottom", fill="x", pady=10)
 
+        self.add_button_change_pw = tkinter.Button(control_frame, text="Change Password")
+        self.add_button_change_pw.pack(side="left", padx=5)
+
+        self.add_button_txt = tkinter.Button(control_frame, text="Add from String")
+        self.add_button_txt.pack(side="left", padx=5)
+
+        self.add_button_qr = tkinter.Button(control_frame, text="Add from QR")
+        self.add_button_qr.pack(side="left", padx=5)
+
+        # --- Frame für die dynamische OTP-Liste ---
+        self.otp_list_frame = tkinter.Frame(self)
+        self.otp_list_frame.pack(side="top", fill="both", expand=True)
+
+        self.otp = otp_class.OtpClass()
         self.i = 0
         self.otp_numbers = {}
+
         self.password_window = PasswordWindow(self)
         self.password_window.pw_entered.connect(self.update_rows)
-
-        self.add_button_txt = tkinter.Button(self, text="add from string")
-        self.add_button_txt.grid(row=0, column=0)
-        self.add_button_qr = tkinter.Button(self, text="add from qr")
-        self.add_button_qr.grid(row=0, column=1)
-
         if not self.otp.is_unlocked:
             self.ask_for_password()
 
     def create_row(self, uri):
-        number_str = tkinter.StringVar(self, self.otp.gen_otp_number(uri))
+        # Wichtig: Die Widgets dem otp_list_frame hinzufügen, nicht self!
+        parent_frame = self.otp_list_frame
+        number_str = tkinter.StringVar(parent_frame, self.otp.gen_otp_number(uri))
         self.otp_numbers.update({uri: number_str})
-        tkinter.Entry(self, textvariable=number_str, state="readonly", width=8).grid(row=self.i, column=0)
-        uri_string = tkinter.StringVar(self, uri)
-        tkinter.Entry(self, textvariable=uri_string, state="readonly", width=80).grid(row=self.i, column=1)
+        tkinter.Entry(parent_frame, textvariable=number_str, state="readonly", width=8).grid(row=self.i, column=0)
+        uri_string = tkinter.StringVar(parent_frame, uri)
+        tkinter.Entry(parent_frame, textvariable=uri_string, state="readonly", width=80).grid(row=self.i, column=1)
         time_str = time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime(self.otp.created(uri)))
-        tkinter.Label(self, text="created {}".format(time_str)).grid(row=self.i, column=2)
-        tkinter.Button(self, text="delete", command=self.delete).grid(row=self.i, column=3)
+        tkinter.Label(parent_frame, text="created {}".format(time_str)).grid(row=self.i, column=2)
+        tkinter.Button(parent_frame, text="delete", command=self.delete).grid(row=self.i, column=3)
         self.i = self.i + 1
 
     def _update_all_otps(self):
@@ -89,17 +102,15 @@ class App(tkinter.Tk):
         return
 
     def update_rows(self):
-        # for testing purposes - remove later
         if not self.otp.is_unlocked:
             return
-        print(f"otp status is {self.otp.is_unlocked}")
+        # Lösche alte Einträge, falls vorhanden (wichtig bei erneutem Aufruf)
+        for widget in self.otp_list_frame.winfo_children():
+            widget.destroy()
+        # Erstelle neue Einträge
         for uri in self.otp.get_uri():
-            self.create_row(uri)
-        self.add_button_txt.grid(row=self.i, column=1)
-        self.add_button_qr.grid(row=self.i, column=2)
-        self.add_button_change_pw = tkinter.Button(self, text="change password")
-        self.add_button_change_pw.grid(row=self.i, column=0)
-
+            self.create_row(uri)  # create_row muss jetzt in self.otp_list_frame zeichnen
+        # Die Buttons müssen nicht mehr neu gezeichnet werden!
         self._update_all_otps()
 
     def delete(self):
