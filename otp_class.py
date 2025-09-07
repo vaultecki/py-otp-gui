@@ -1,3 +1,4 @@
+import base64
 import cv2
 import json
 import logging
@@ -5,10 +6,13 @@ import os
 import pyotp
 import time
 import datetime
-# import from project
-import helper
+
+import crypt_utils
 
 logger = logging.getLogger(__name__)
+
+class QRCodeNotFoundError(Exception):
+    pass
 
 class OtpClass:
     def __init__(self):
@@ -20,30 +24,32 @@ class OtpClass:
         self.totp_objects = {}
         # read config and update variables
         self.read_config()
-        self.enc_helper = helper.EncHelper(salt=self.data.get("salt",""))
-        self.data.update({"salt": self.enc_helper.get_salt()})
+        if not self.data.get("salt", ""):
+            salt = base64.b64encode(crypt_utils.CryptoUtils.generate_salt()).decode("ascii")
+            self.data.update({"salt": salt})
+        self.key = False
         self.__decrypt()
 
     def use_password(self, password):
         logger.info("set password")
-        try:
-            self.enc_helper.set_password(password)
-        except:
-            logger.info("error setting password")
-            return
+        salt = base64.b64decode(self.data.get("salt", ""))
+        self.key = crypt_utils.CryptoUtils.derive_key(password, salt)
         self.__decrypt()
 
     def __decrypt(self):
         logger.debug("start decrypting encrypt data")
-        if self.enc_helper.status():
+        if self.key and self.data.get("encrypted", ""):
             try:
-                self.decrypted = json.loads(self.enc_helper.decrypt(self.data.get("encrypted", "")))
+                encrypted = base64.b64decode(self.data.get("encrypted", ""))
+                text_to_load = crypt_utils.CryptoUtils.decrypt(encrypted, self.key)
+                self.decrypted = json.loads(text_to_load)
             except:
-                self.decrypted = {}
+                raise TypeError("password incorrect")
             print(self.decrypted)
             self.__gen_otp_uri()
 
     def read_config(self):
+        logger.info("read config")
         home_dir = os.path.expanduser("~")
         if os.name in ["nt", "windows"]:
             home_dir = os.path.join(home_dir, "AppData\\Local\\ThaOTP")
@@ -64,30 +70,25 @@ class OtpClass:
 
     def write_config(self):
         logger.info("writing logs")
-        if self.enc_helper.status():
-            logger.info("encrypt uris {}".format(json.dumps(self.decrypted)))
-            self.data.update({"encrypted": self.enc_helper.encrypt(json.dumps(self.decrypted))})
+        if self.decrypted:
+            text_to_log = json.dumps(self.decrypted)
+            print(text_to_log)
+            if self.key:
+                encrypted = crypt_utils.CryptoUtils.encrypt(text_to_log.encode("utf-8"), self.key)
+                print(encrypted)
+                text_to_log = base64.b64encode(encrypted).decode("ascii")
+                print(text_to_log)
+            self.data.update({"encrypted": text_to_log})
+            print(self.data)
         try:
             with open(self.config_filename, "w", encoding="utf-8") as config_file:
                 json.dump(self.data, config_file, indent=4)
         except Exception as e:
             logger.error("writing config to file error: {}".format(e))
 
-    def add_uri_from_qrcode(self, filename):
-        image = cv2.imread(filename)
-        # initialize the cv2 QRCode detector
-        detector = cv2.QRCodeDetector()
-        # detect and decode
-        uri, vertices_array, binary_qrcode = detector.detectAndDecode(image)
-        if vertices_array is None:
-            logger.error("There was some error")
-            return
-        logger.debug("QRCode data: {}".format(uri))
-        self.add_uri(uri)
-
     def add_uri(self, uri, date=time.time()):
         logger.debug("add uri: {}".format(uri))
-        if uri not in self.decrypted and self.enc_helper.status():
+        if uri not in self.decrypted and self.key:
             logger.debug("add uri: {} - date: {}".format(uri, date))
             self.decrypted.update({uri: {"date": date}})
             self.totp_objects.update({uri: pyotp.parse_uri(uri)})
@@ -122,7 +123,24 @@ class OtpClass:
         return self.totp_objects.keys()
 
     def status(self):
-        return self.enc_helper.status()
+        if self.key:
+            return True
+        return False
+
+
+def read_uri_from_qr_image(filepath: str) -> str:
+    """Liest ein QR-Code-Bild und gibt den enthaltenen Text zurück."""
+    image = cv2.imread(filepath)
+    if image is None:
+        raise cv2.error("Bild konnte nicht gelesen werden.")  # OpenCV gibt None zurück, nicht immer einen Error
+
+    detector = cv2.QRCodeDetector()
+    decoded_text, _, _ = detector.detectAndDecode(image)
+
+    if not decoded_text:
+        raise QRCodeNotFoundError("Im Bild wurde kein QR-Code gefunden.")
+
+    return decoded_text
 
 
 if __name__ == '__main__':
@@ -131,11 +149,11 @@ if __name__ == '__main__':
 
     test = OtpClass()
     test.use_password("test")
-    # filename = "Download.png"
-    # test.add_uri_from_qrcode(filename)
+    filename = "Download.png"
+    uri = read_uri_from_qr_image(filename)
     t1 = 1755068753.2957523
-    #uri = "..."
-    #test.add_uri(uri, t1)
+    #uri = ""
+    test.add_uri(uri, t1)
     #test.write_config()
     #number = test.gen_otp_number(uri=uri)
     #logger.info("one time number for uri: {} is {}".format(uri, number))
