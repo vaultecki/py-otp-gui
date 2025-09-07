@@ -37,9 +37,9 @@ class OtpClass:
                 self.decrypted = json.loads(text_to_load)
             except nacl.exceptions.CryptoError:
                 # Gib dem Aufrufer eine klare Rückmeldung
-                raise InvalidPasswordError("Entschlüsselung fehlgeschlagen. Wahrscheinlich ist das Passwort falsch.")
+                raise exceptions.InvalidPasswordError("Entschlüsselung fehlgeschlagen. Wahrscheinlich ist das Passwort falsch.")
             except (json.JSONDecodeError, TypeError):
-                raise ConfigFileError("Die Konfigurationsdatei scheint beschädigt zu sein.")
+                raise exceptions.ConfigFileError("Die Konfigurationsdatei scheint beschädigt zu sein.")
             print(self.decrypted)
             self.is_unlocked = True
             self.__gen_otp_uri()

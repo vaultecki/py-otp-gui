@@ -1,13 +1,11 @@
 import tkinter
+import tkinter.messagebox
 import logging
-import threading
 import time
-
 import PySignal
-from PIL import Image
 
-# import from project
 import otp_class
+import exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -36,15 +34,16 @@ class PasswordWindow(tkinter.Toplevel):
         self.grab_set()
 
     def send_password(self):
+        logger.info("password button clicked")
         try:
-            self.master.otp.unlock_with_password(self.password_entry.get())
+            self.master.otp.unlock_with_password(self.password_entry.get())  # Umbenannte Methode
+            self.pw_entered.emit()
+            self.destroy()
+        except exceptions.InvalidPasswordError as e:
+            # Zeige dem Benutzer eine Fehlermeldung
+            tkinter.messagebox.showerror("Fehler", str(e))
         except Exception as e:
-            print(f"error {e}")
-            return
-        self.pw_entered.emit()
-        print("try to close window")
-        self.destroy()
-        self.update()
+            tkinter.messagebox.showerror("Unerwarteter Fehler", f"Ein Fehler ist aufgetreten: {e}")
 
 
 class App(tkinter.Tk):
@@ -84,6 +83,7 @@ class App(tkinter.Tk):
         for uri, number in self.otp_numbers.items():
             print(f"time to update uri {uri} and number {number.get()}")
             number.set(self.otp.gen_otp_number(uri, time.time()))
+        self.after(5000, self._update_all_otps)
 
     def ask_for_password(self):
         logger.info("ask for password")
@@ -102,7 +102,7 @@ class App(tkinter.Tk):
         self.add_button_change_pw = tkinter.Button(self, text="change password")
         self.add_button_change_pw.grid(row=self.i, column=0)
 
-        self.after(5000, self._update_all_otps)
+        self._update_all_otps()
 
     def delete(self):
         logger.info("delete")

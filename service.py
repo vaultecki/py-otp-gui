@@ -13,6 +13,6 @@ def read_uri_from_qr_image(filepath: str) -> str:
     decoded_text, _, _ = detector.detectAndDecode(image)
 
     if not decoded_text:
-        raise QRCodeNotFoundError("Im Bild wurde kein QR-Code gefunden.")
+        raise exceptions.QRCodeNotFoundError("Im Bild wurde kein QR-Code gefunden.")
 
     return decoded_text
