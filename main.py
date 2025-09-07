@@ -68,7 +68,6 @@ class App(tkinter.Tk):
         self.otp_list_frame.pack(side="top", fill="both", expand=True)
 
         self.otp = otp_class.OtpClass()
-        self.i = 0
         self.otp_numbers = {}
 
         self.password_window = PasswordWindow(self)
@@ -76,18 +75,18 @@ class App(tkinter.Tk):
         if not self.otp.is_unlocked:
             self.ask_for_password()
 
-    def create_row(self, uri):
+    def create_row(self, uri:str, row_index:int):
+        logger.debug(f"add row {row_index} for uri {uri}")
         # Wichtig: Die Widgets dem otp_list_frame hinzufügen, nicht self!
         parent_frame = self.otp_list_frame
         number_str = tkinter.StringVar(parent_frame, self.otp.gen_otp_number(uri))
         self.otp_numbers.update({uri: number_str})
-        tkinter.Entry(parent_frame, textvariable=number_str, state="readonly", width=8).grid(row=self.i, column=0)
+        tkinter.Entry(parent_frame, textvariable=number_str, state="readonly", width=8).grid(row=row_index, column=0)
         uri_string = tkinter.StringVar(parent_frame, uri)
-        tkinter.Entry(parent_frame, textvariable=uri_string, state="readonly", width=80).grid(row=self.i, column=1)
+        tkinter.Entry(parent_frame, textvariable=uri_string, state="readonly", width=80).grid(row=row_index, column=1)
         time_str = time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime(self.otp.created(uri)))
-        tkinter.Label(parent_frame, text="created {}".format(time_str)).grid(row=self.i, column=2)
-        tkinter.Button(parent_frame, text="delete", command=self.delete).grid(row=self.i, column=3)
-        self.i = self.i + 1
+        tkinter.Label(parent_frame, text="created {}".format(time_str)).grid(row=row_index, column=2)
+        tkinter.Button(parent_frame, text="delete", command=lambda u=uri: self.delete(u)).grid(row=row_index, column=3)
 
     def _update_all_otps(self):
         logger.info(f"it's time {time.time()}")
@@ -108,13 +107,18 @@ class App(tkinter.Tk):
         for widget in self.otp_list_frame.winfo_children():
             widget.destroy()
         # Erstelle neue Einträge
-        for uri in self.otp.get_uri():
-            self.create_row(uri)  # create_row muss jetzt in self.otp_list_frame zeichnen
+        for index, uri in enumerate(self.otp.get_uri()):
+            self.create_row(uri, index)  # create_row muss jetzt in self.otp_list_frame zeichnen
         # Die Buttons müssen nicht mehr neu gezeichnet werden!
         self._update_all_otps()
 
-    def delete(self):
-        logger.info("delete")
+    def delete(self, uri_to_delete):
+        logger.info(f"Attempting to delete {uri_to_delete}")
+        # Bestätigungsdialog anzeigen
+        if tkinter.messagebox.askyesno("Löschen bestätigen", f"Möchtest du '{uri_to_delete}' wirklich löschen?"):
+            self.otp.delete_uri(uri_to_delete)
+            self.otp.write_config()
+            self.update_rows()
 
 
 if __name__ == "__main__":

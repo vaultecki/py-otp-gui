@@ -123,6 +123,14 @@ class OtpClass:
     def get_uri(self):
         return self.totp_objects.keys()
 
+    def delete_uri(self, uri: str):
+        logger.debug(f"Deleting uri: {uri}")
+        # Sicher aus beiden Dictionaries entfernen
+        if uri in self.decrypted_data:
+            del self.decrypted_data[uri]
+        if uri in self.totp_objects:
+            del self.totp_objects[uri]
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
