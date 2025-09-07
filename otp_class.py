@@ -42,6 +42,13 @@ class OtpClass:
         self.key = crypt_utils.CryptoUtils.derive_key(password, salt)
         self._decrypt()
 
+    def set_new_password(self, password):
+        logger.info("set password")
+        if self.is_unlocked:
+            salt = crypt_utils.CryptoUtils.decode_base64(self.data.get("salt", ""))
+            self.key = crypt_utils.CryptoUtils.derive_key(password, salt)
+            self._write_config()
+
     def _decrypt(self):
         logger.debug("start decrypting encrypt data")
         if self.key and self.data.get("encrypted", ""):
@@ -79,7 +86,7 @@ class OtpClass:
             # Gib None oder ein leeres Dict zurück, um den "nicht gefunden"-Fall zu signalisieren
             return {}
 
-    def write_config(self):
+    def _write_config(self):
         logger.info("writing logs")
         if self.decrypted_data:
             text_to_log = json.dumps(self.decrypted_data)
@@ -99,6 +106,7 @@ class OtpClass:
             logger.debug("add uri: {} - date: {}".format(uri, date))
             self.decrypted_data.update({uri: {"date": date}})
             self.totp_objects.update({uri: pyotp.parse_uri(uri)})
+            self._write_config()
 
     def __gen_otp_uri(self):
         logger.debug("gen otp for all uris from {}".format(self.decrypted_data))
@@ -128,6 +136,7 @@ class OtpClass:
         # Sicher aus beiden Dictionaries entfernen
         if uri in self.decrypted_data:
             del self.decrypted_data[uri]
+            self._write_config()
         if uri in self.totp_objects:
             del self.totp_objects[uri]
 

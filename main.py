@@ -6,6 +6,7 @@ import PySignal
 
 import otp_class
 import exceptions
+import extra_windows
 
 logger = logging.getLogger(__name__)
 
@@ -54,14 +55,11 @@ class App(tkinter.Tk):
         control_frame = tkinter.Frame(self)
         control_frame.pack(side="bottom", fill="x", pady=10)
 
-        self.add_button_change_pw = tkinter.Button(control_frame, text="Change Password")
+        self.add_button_change_pw = tkinter.Button(control_frame, text="Change Password", command=self.on_click_pw_change)
         self.add_button_change_pw.pack(side="left", padx=5)
 
-        self.add_button_txt = tkinter.Button(control_frame, text="Add from String")
+        self.add_button_txt = tkinter.Button(control_frame, text="Add OTP URL", command=self.on_click_add)
         self.add_button_txt.pack(side="left", padx=5)
-
-        self.add_button_qr = tkinter.Button(control_frame, text="Add from QR")
-        self.add_button_qr.pack(side="left", padx=5)
 
         # --- Frame für die dynamische OTP-Liste ---
         self.otp_list_frame = tkinter.Frame(self)
@@ -117,8 +115,17 @@ class App(tkinter.Tk):
         # Bestätigungsdialog anzeigen
         if tkinter.messagebox.askyesno("Löschen bestätigen", f"Möchtest du '{uri_to_delete}' wirklich löschen?"):
             self.otp.delete_uri(uri_to_delete)
-            self.otp.write_config()
             self.update_rows()
+
+    def on_click_add(self):
+        logger.info("on click add")
+        if self.otp.is_unlocked:
+            extra_windows.AddOtp(self)
+
+    def on_click_pw_change(self):
+        logger.info(f"change password for {self.otp.data}")
+        if self.otp.is_unlocked:
+            extra_windows.ChangePw(self)
 
 
 if __name__ == "__main__":
