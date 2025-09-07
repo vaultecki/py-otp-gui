@@ -26,7 +26,6 @@ class PasswordWindow(tkinter.Toplevel):
         self.password_entry = tkinter.Entry(self, show="*",width=20)
         self.password_entry.pack()
 
-        #Create a button to close the window
         tkinter.Button(self, text="Try PW", font=('Helvetica bold', 10), command=self.send_password).pack(pady=20)
 
     def run(self):
@@ -54,7 +53,6 @@ class App(tkinter.Tk):
         self.otp = otp_class.OtpClass()
 
         self.i = 0
-        self.stop = False
         self.otp_numbers = {}
         self.password_window = PasswordWindow(self)
         self.password_window.pw_entered.connect(self.update_rows)
@@ -106,12 +104,6 @@ class App(tkinter.Tk):
 
     def delete(self):
         logger.info("delete")
-
-    def on_closing(self):
-        self.stop = True
-        for t in self.timers:
-            t.join(timeout=0.5)
-        self.destroy()
 
 
 if __name__ == "__main__":
