@@ -1,7 +1,5 @@
 import tkinter
 import logging
-import os
-import PySignal
 import threading
 import time
 from PIL import Image
@@ -13,7 +11,6 @@ logger = logging.getLogger(__name__)
 
 
 class PasswordWindow(tkinter.Toplevel):
-    pw_entered = PySignal.ClassSignal()
     def __init__(self, master):
         super().__init__(master)
         self.master = master
@@ -36,18 +33,18 @@ class PasswordWindow(tkinter.Toplevel):
         self.grab_set()
 
     def send_password(self):
-        self.pw_entered.emit(self.password_entry.get())
-
-    def close(self, value):
-        if not value:
-            print("try to close window")
-            self.destroy()
-            self.update()
-        return
+        try:
+            self.master.otp.use_password(self.password_entry.get())
+        except Exception as e:
+            print(f"error {e}")
+            return
+        self.master.update_rows()
+        print("try to close window")
+        self.destroy()
+        self.update()
 
 
 class App(tkinter.Tk):
-    no_password = PySignal.ClassSignal()
     def __init__(self):
         super().__init__()
 
@@ -60,8 +57,6 @@ class App(tkinter.Tk):
         self.otp_numbers = []
         self.timers = []
         self.password_window = PasswordWindow(self)
-        self.password_window.pw_entered.connect(self.pw_received)
-        self.no_password.connect(self.password_window.close)
 
         self.add_button_txt = tkinter.Button(self, text="add from string")
         self.add_button_txt.grid(row=0, column=0)
@@ -83,9 +78,9 @@ class App(tkinter.Tk):
         i = self.i
         self.i = self.i + 1
         interval = self.otp.interval(uri)-2
-        t = threading.Thread(target=self.update_number, args=(interval, i, uri))
-        self.timers.append(t)
-        t.start()
+        #t = threading.Thread(target=self.update_number, args=(interval, i, uri))
+        #self.timers.append(t)
+        #t.start()
         return
 
     def update_number(self, interval, i, uri):
@@ -101,21 +96,15 @@ class App(tkinter.Tk):
         self.password_window.run()
         return
 
-    def pw_received(self, password):
+    def update_rows(self):
         # for testing purposes - remove later
-        self.otp.use_password(password)
         print(f"otp status is {self.otp.status()}")
-        if not self.otp.status():
-            self.no_password.emit(True)
-            return
-
-        self.no_password.emit(False)
-
         for uri in self.otp.get_uri():
             self.create_row(uri)
-
         self.add_button_txt.grid(row=self.i, column=1)
         self.add_button_qr.grid(row=self.i, column=2)
+        self.add_button_change_pw = tkinter.Button(self, text="change password")
+        self.add_button_change_pw.grid(row=self.i, column=0)
 
     def delete(self):
         logger.info("delete")

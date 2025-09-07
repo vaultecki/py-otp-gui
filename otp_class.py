@@ -123,7 +123,7 @@ class OtpClass:
         return self.totp_objects.keys()
 
     def status(self):
-        if self.key:
+        if self.key or "encrypted" not in self.data.keys():
             return True
         return False
 
