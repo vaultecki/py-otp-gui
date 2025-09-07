@@ -2,7 +2,6 @@ import tkinter
 import tkinter.messagebox
 import logging
 import time
-import PySignal
 
 import otp_class
 import exceptions
@@ -12,32 +11,31 @@ logger = logging.getLogger(__name__)
 
 
 class PasswordWindow(tkinter.Toplevel):
-    pw_entered = PySignal.ClassSignal()
-    def __init__(self, master):
+    def __init__(self, master,  on_success):
         super().__init__(master)
         self.master = master
-        logger.info("open qr code display window")
+        logger.info("open password input display window")
         #Set the geometry of frame
         self.geometry("600x250")
         self.title("Password Window")
-        #Create a text label
-        tkinter.Label(self, text="Enter the Password for saved otp", font=('Helvetica',20)).pack(pady=20)
+        self.on_success = on_success
 
+        #Create a text label
+        tkinter.Label(self, text="Enter the Password for saved otp").pack(pady=20)
         #Create Entry Widget for password
         self.password_entry = tkinter.Entry(self, show="*",width=20)
         self.password_entry.pack()
+        #button
+        tkinter.Button(self, text="Try PW", command=self.send_password).pack(pady=20)
 
-        tkinter.Button(self, text="Try PW", font=('Helvetica bold', 10), command=self.send_password).pack(pady=20)
-
-    def run(self):
-        self.transient(self.master)
+        self.transient(master)
         self.grab_set()
 
     def send_password(self):
         logger.info("password button clicked")
         try:
             self.master.otp.unlock_with_password(self.password_entry.get())  # Umbenannte Methode
-            self.pw_entered.emit()
+            self.on_success()
             self.destroy()
         except exceptions.InvalidPasswordError as e:
             # Zeige dem Benutzer eine Fehlermeldung
@@ -59,7 +57,7 @@ class App(tkinter.Tk):
         self.add_button_change_pw.pack(side="left", padx=5)
 
         self.add_button_txt = tkinter.Button(control_frame, text="Add OTP URL", command=self.on_click_add)
-        self.add_button_txt.pack(side="left", padx=5)
+        self.add_button_txt.pack(side="right", padx=5)
 
         # --- Frame für die dynamische OTP-Liste ---
         self.otp_list_frame = tkinter.Frame(self)
@@ -68,10 +66,9 @@ class App(tkinter.Tk):
         self.otp = otp_class.OtpClass()
         self.otp_numbers = {}
 
-        self.password_window = PasswordWindow(self)
-        self.password_window.pw_entered.connect(self.update_rows)
         if not self.otp.is_unlocked:
-            self.ask_for_password()
+            logger.info("ask for password")
+            PasswordWindow(self, on_success=self.update_rows)
 
     def create_row(self, uri:str, row_index:int):
         logger.debug(f"add row {row_index} for uri {uri}")
@@ -92,11 +89,6 @@ class App(tkinter.Tk):
             logger.debug(f"time to update uri {uri} and number {number.get()}")
             number.set(self.otp.gen_otp_number(uri, time.time()))
         self.after(5000, self._update_all_otps)
-
-    def ask_for_password(self):
-        logger.info("ask for password")
-        self.password_window.run()
-        return
 
     def update_rows(self):
         if not self.otp.is_unlocked:

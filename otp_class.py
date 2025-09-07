@@ -112,7 +112,6 @@ class OtpClass:
     def gen_otp_number(self, uri, date=time.time()):
         logger.debug("gen one time number for otp uri: {}".format(uri))
         if uri in self.decrypted_data:
-            # Erzeuge das Objekt nur für diesen einen Moment
             totp = pyotp.parse_uri(uri)
             return totp.at(date)
         return -1
@@ -128,7 +127,6 @@ class OtpClass:
 
     def delete_uri(self, uri: str):
         logger.debug(f"Deleting uri: {uri}")
-        # Sicher aus beiden Dictionaries entfernen
         if uri in self.decrypted_data:
             del self.decrypted_data[uri]
 
@@ -140,14 +138,13 @@ if __name__ == '__main__':
     test = OtpClass()
     test.unlock_with_password("test")
     filename = "Download.png"
-    #uri = read_uri_from_qr_image(filename)
     t1 = 1755068753.2957523
-    uri = ""
+    #url = ""
     #test.add_uri(uri, t1)
     #test.save()
     #number = test.gen_otp_number(uri=uri)
     #logger.info("one time number for uri: {} is {}".format(uri, number))
-    uris = test.get_uri()
-    for uri in uris:
-        logger.info("one time number for uri: {} is {}".format(uri, test.gen_otp_number(uri, t1)))
-        logger.info("one time number for uri: {} is {}".format(uri, test.gen_otp_number(uri)))
+    urls = test.get_uri()
+    for url in urls:
+        logger.info("one time number for uri: {} is {}".format(url, test.gen_otp_number(url, t1)))
+        logger.info("one time number for uri: {} is {}".format(url, test.gen_otp_number(url)))
