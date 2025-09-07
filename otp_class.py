@@ -51,13 +51,13 @@ class OtpClass:
 
     def _decrypt(self):
         logger.debug("start decrypting encrypt data")
-        if self.raw_config_data.get("encrypted", ""):
+        if self.raw_config_data.get("encrypted", "") and self.is_unlocked:
             try:
                 text_to_load = self.raw_config_data.get("encrypted", "")
                 self.decrypted_data = json.loads(text_to_load)
             except (json.JSONDecodeError, TypeError):
                 logger.info("laden ohne passwort schlug fehl")
-        if self.key and self.raw_config_data.get("encrypted", ""):
+        if self.key and self.raw_config_data.get("encrypted", "") and not self.is_unlocked:
             try:
                 encrypted = crypt_utils.CryptoUtils.decode_base64(self.raw_config_data.get("encrypted", ""))
                 text_to_load = crypt_utils.CryptoUtils.decrypt(encrypted, self.key)
@@ -107,7 +107,7 @@ class OtpClass:
 
     def add_uri(self, uri, date=time.time()):
         logger.debug("add uri: {}".format(uri))
-        if uri not in self.decrypted_data and self.key and uri:
+        if uri not in self.decrypted_data and self.is_unlocked and uri:
             logger.debug("add uri: {} - date: {}".format(uri, date))
             try:
                 pyotp.parse_uri(uri)
