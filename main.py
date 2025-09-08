@@ -71,7 +71,11 @@ class App(tkinter.Tk):
 
         if not self.otp.is_unlocked:
             logger.info("ask for password")
-            PasswordWindow(self, on_success=self.update_rows)
+            # Öffne das Passwortfenster, nachdem das Hauptfenster "bereit" ist
+            self.after_idle(lambda: PasswordWindow(self, on_success=self.update_rows))
+        else:
+            # Falls kein Passwort nötig ist, zeige die Reihen sofort an
+            self.update_rows()
 
     def create_row(self, uri:str, row_index:int):
         logger.debug(f"add row {row_index} for uri {uri}")

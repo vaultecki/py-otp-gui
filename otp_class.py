@@ -103,16 +103,23 @@ class OtpClass:
     def save(self):
         logger.info("writing logs")
         if self.decrypted_data:
-            text_to_log = json.dumps(self.decrypted_data)
-            if self.key:
-                encrypted = crypt_utils.CryptoUtils.encrypt(text_to_log.encode("utf-8"), self.key)
-                text_to_log = crypt_utils.CryptoUtils.encode_base64(encrypted)
-            self.raw_config_data.update({"encrypted": text_to_log})
+            json_string = json.dumps(self.decrypted_data)
+            encrypted_string = self._encrypt_data(json_string)
+            self.raw_config_data.update({"encrypted": encrypted_string})
+
         try:
             with open(self.config_filename, "w", encoding="utf-8") as config_file:
                 json.dump(self.raw_config_data, config_file, indent=4)
-        except Exception as e:
-            logger.error("writing config to file error: {}".format(e))
+        except IOError as e:
+            logger.error(f"Error writing config to file: {e}")
+
+    def _encrypt_data(self, data_to_encrypt: str) -> str:
+        """Verschlüsselt die Daten, falls ein Schlüssel vorhanden ist."""
+        if self.key:
+            encrypted_bytes = crypt_utils.CryptoUtils.encrypt(data_to_encrypt.encode("utf-8"), self.key)
+            return crypt_utils.CryptoUtils.encode_base64(encrypted_bytes)
+        # Gib die Daten unverschlüsselt zurück, wenn kein Schlüssel gesetzt ist
+        return data_to_encrypt
 
     def add_uri(self, uri, date=time.time()):
         logger.debug("add uri: {}".format(uri))

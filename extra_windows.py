@@ -56,13 +56,20 @@ class AddOtp(tkinter.Toplevel):
 
     def on_click_add(self):
         logger.debug("click add")
+        uri_text = self.entry_text.get().strip()  # .strip() entfernt Leerzeichen am Anfang/Ende
+
+        if not uri_text:
+            messagebox.showwarning("Leere Eingabe", "Bitte gib eine OTP-URL an.")
+            return  # Beende die Funktion hier
+
         try:
-            self.master.otp.add_uri(self.entry_text.get(), time.time())
+            self.master.otp.add_uri(uri_text, time.time())
+            self.master.otp.save()
+            self.master.update_rows()
+            self.destroy()
         except exceptions.UriError as err:
             tkinter.messagebox.showerror("error", f"uri konnte nicht hinzugefügt werden: {err}")
-        self.master.otp.save()
-        self.master.update_rows()
-        self.destroy()
+
 
 class ChangePw(tkinter.Toplevel):
     def __init__(self, master):
