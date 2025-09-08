@@ -35,7 +35,6 @@ class PasswordWindow(tkinter.Toplevel):
         try:
             self.master.otp.unlock_with_password(self.password_entry.get())  # Umbenannte Methode
             self.on_success()
-            self.master.otp.raw_config_data.update({"pw_enter_geometry": self.geometry()})
             self.destroy()
         except exceptions.InvalidPasswordError as e:
             # Zeige dem Benutzer eine Fehlermeldung
@@ -66,6 +65,9 @@ class App(tkinter.Tk):
         # --- Frame für die dynamische OTP-Liste ---
         self.otp_list_frame = tkinter.Frame(self)
         self.otp_list_frame.pack(side="top", fill="both", expand=True)
+
+        # Protokoll für das Schließen des Fensters festlegen
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         if not self.otp.is_unlocked:
             logger.info("ask for password")
@@ -102,7 +104,6 @@ class App(tkinter.Tk):
             self.create_row(uri, index)  # create_row muss jetzt in self.otp_list_frame zeichnen
         # Die Buttons müssen nicht mehr neu gezeichnet werden!
         self._update_all_otps()
-        self.otp.raw_config_data.update({"main_geometry": self.geometry()})
 
     def delete(self, uri_to_delete):
         logger.info(f"Attempting to delete {uri_to_delete}")
@@ -121,6 +122,16 @@ class App(tkinter.Tk):
         logger.info(f"change password for OTP")
         if self.otp.is_unlocked:
             extra_windows.ChangePw(self)
+
+    def on_closing(self):
+        """Wird ausgeführt, wenn das Fenster geschlossen wird."""
+        logger.info("Closing application and saving settings.")
+        # Speichere die Geometrie des Hauptfensters
+        self.otp.raw_config_data.update({"main_geometry": self.geometry()})
+        # Speichere die gesamte Konfiguration
+        self.otp.save()
+        # Schließe das Fenster
+        self.destroy()
 
 
 if __name__ == "__main__":

@@ -60,7 +60,6 @@ class AddOtp(tkinter.Toplevel):
             self.master.otp.add_uri(self.entry_text.get(), time.time())
         except exceptions.UriError as err:
             tkinter.messagebox.showerror("error", f"uri konnte nicht hinzugefügt werden: {err}")
-        self.master.otp.raw_config_data.update({"otp_add_geometry": self.geometry()})
         self.master.otp.save()
         self.master.update_rows()
         self.destroy()
@@ -96,6 +95,5 @@ class ChangePw(tkinter.Toplevel):
         else:
             if tkinter.messagebox.askyesno("PW Änderung bestätigen", "Möchtest du das Passwort wirklich ändern"):
                 self.master.otp.set_new_password(self.entry_password_1.get())
-                self.master.otp.raw_config_data.update({"pw_change_geometry": self.geometry()})
                 self.master.otp.save()
                 self.destroy()

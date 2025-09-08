@@ -16,11 +16,14 @@ logger = logging.getLogger(__name__)
 class OtpClass:
     def __init__(self):
         logger.info("init otp class")
-        # init variables
-        self.config_filename = self._get_config_file_path()
+        # prepare paths
+        self.config_filename = self._get_config_file_filename()
+        self._ensure_config_directory_exists()
+        # init rest of the variables
         self.key = None
         self.is_unlocked = False
         self.decrypted_data = {}
+        # read data from config file
         self.raw_config_data = self._read_config()
 
         # Wenn die Konfiguration leer ist, erstelle eine neue.
@@ -50,24 +53,23 @@ class OtpClass:
             self.key = crypt_utils.CryptoUtils.derive_key(password, salt)
 
     def _decrypt(self):
-        logger.debug("start decrypting encrypt data")
-        if self.raw_config_data.get("encrypted", "") and self.is_unlocked:
-            try:
-                text_to_load = self.raw_config_data.get("encrypted", "")
-                self.decrypted_data = json.loads(text_to_load)
-            except (json.JSONDecodeError, TypeError):
-                logger.info("laden ohne passwort schlug fehl")
-        if self.key and self.raw_config_data.get("encrypted", "") and not self.is_unlocked:
-            try:
-                encrypted = crypt_utils.CryptoUtils.decode_base64(self.raw_config_data.get("encrypted", ""))
-                text_to_load = crypt_utils.CryptoUtils.decrypt(encrypted, self.key)
-                self.decrypted_data = json.loads(text_to_load)
-            except nacl.exceptions.CryptoError:
-                # Gib dem Aufrufer eine klare Rückmeldung
-                raise exceptions.InvalidPasswordError("Entschlüsselung fehlgeschlagen. Wahrscheinlich ist das Passwort falsch.")
-            except (json.JSONDecodeError, TypeError):
-                raise exceptions.ConfigFileError("Die Konfigurationsdatei scheint beschädigt zu sein.")
+        logger.debug("Attempting to decrypt data with provided key.")
+        # Es gibt nichts zu tun, wenn kein Schlüssel oder keine Daten vorhanden sind.
+        if not self.key or not self.raw_config_data.get("encrypted", ""):
+            return
+
+        try:
+            encrypted = crypt_utils.CryptoUtils.decode_base64(self.raw_config_data.get("encrypted", ""))
+            text_to_load = crypt_utils.CryptoUtils.decrypt(encrypted, self.key)
+            self.decrypted_data = json.loads(text_to_load)
+            # Nur bei Erfolg wird der Tresor als entsperrt markiert.
             self.is_unlocked = True
+            logger.info("Decryption successful. Vault is unlocked.")
+        except nacl.exceptions.CryptoError:
+            raise exceptions.InvalidPasswordError(
+                "Entschlüsselung fehlgeschlagen. Wahrscheinlich ist das Passwort falsch.")
+        except (json.JSONDecodeError, TypeError):
+            raise exceptions.ConfigFileError("Die Konfigurationsdatei scheint beschädigt zu sein.")
 
     @staticmethod
     def _get_config_file_path():
@@ -77,9 +79,16 @@ class OtpClass:
             home_dir = os.path.join(home_dir, "AppData\\Local\\ThaOTP")
         else:
             home_dir = os.path.join(home_dir, ".config/ThaOTP")
+        return home_dir
+
+    def _get_config_file_filename(self):
+        home_dir = self._get_config_file_path()
+        return os.path.join(home_dir, "config.json")
+
+    def _ensure_config_directory_exists(self):
+        home_dir = self._get_config_file_path()
         if not os.path.exists(home_dir):
             os.makedirs(home_dir)
-        return os.path.join(home_dir, "config.json")
 
     def _read_config(self):
         logger.debug("open {}".format(self.config_filename))
