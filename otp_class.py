@@ -119,11 +119,8 @@ class OtpClass:
             return totp.at(date)
         return -1
 
-    def created(self, uri):
-        if self.decrypted_data:
-            return self.decrypted_data.get(uri, OtpEntry("no_entry", 0)).created_at
-        else:
-            return 0
+    def get_entry(self, uri: str) -> OtpEntry | None:
+        return self.decrypted_data.get(uri)
 
     def get_uri(self):
         return self.decrypted_data.keys()
@@ -138,21 +135,3 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     logger.info("moin")
 
-    test = OtpClass()
-    test.unlock_with_password("test")
-    filename = "Download.png"
-    t1 = 1755068753.2957523
-    #url = ""
-    #test.add_uri(uri, t1)
-    #test.save()
-    #number = test.gen_otp_number(uri=uri)
-    #logger.info("one time number for uri: {} is {}".format(uri, number))
-    urls = test.get_uri()
-    #print(urls)
-    #test.delete_uri("")
-    #urls = test.get_uri()
-    #print(urls)
-    for url in urls:
-        logger.info("one time number for uri: {} is {}".format(url, test.gen_otp_number(url, t1)))
-        logger.info("one time number for uri: {} is {}".format(url, test.gen_otp_number(url)))
-    #test.save()

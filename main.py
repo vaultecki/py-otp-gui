@@ -80,15 +80,17 @@ class App(tkinter.Tk):
     def create_row(self, uri:str, row_index:int):
         logger.debug(f"add row {row_index} for uri {uri}")
         # Wichtig: Die Widgets dem otp_list_frame hinzufügen, nicht self!
-        parent_frame = self.otp_list_frame
-        number_str = tkinter.StringVar(parent_frame, self.otp.gen_otp_number(uri))
-        self.otp_numbers.update({uri: number_str})
-        tkinter.Entry(parent_frame, textvariable=number_str, state="readonly", width=8).grid(row=row_index, column=0)
-        uri_string = tkinter.StringVar(parent_frame, uri)
-        tkinter.Entry(parent_frame, textvariable=uri_string, state="readonly", width=80).grid(row=row_index, column=1)
-        time_str = time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime(self.otp.created(uri)))
-        tkinter.Label(parent_frame, text="created {}".format(time_str)).grid(row=row_index, column=2)
-        tkinter.Button(parent_frame, text="delete", command=lambda u=uri: self.delete(u)).grid(row=row_index, column=3)
+        entry = self.otp.get_entry(uri)
+        if entry:
+            parent_frame = self.otp_list_frame
+            number_str = tkinter.StringVar(parent_frame, self.otp.gen_otp_number(uri))
+            self.otp_numbers.update({uri: number_str})
+            tkinter.Entry(parent_frame, textvariable=number_str, state="readonly", width=8).grid(row=row_index, column=0)
+            uri_string = tkinter.StringVar(parent_frame, uri)
+            tkinter.Entry(parent_frame, textvariable=uri_string, state="readonly", width=80).grid(row=row_index, column=1)
+            time_str = time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime(entry.created_at))
+            tkinter.Label(parent_frame, text="created {}".format(time_str)).grid(row=row_index, column=2)
+            tkinter.Button(parent_frame, text="delete", command=lambda u=uri: self.delete(u)).grid(row=row_index, column=3)
 
     def _update_all_otps(self):
         logger.info(f"it's time {time.time()}")
