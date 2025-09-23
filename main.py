@@ -15,7 +15,7 @@ class PasswordWindow(tkinter.Toplevel):
         super().__init__(master)
         logger.info("open password input display window")
         #Set the geometry of frame
-        self.geometry(self.master.otp.raw_config_data.get("pw_enter_geometry", "600x250"))
+        self.geometry(self.master.otp.config.get("pw_enter_geometry", "600x250"))
         self.title("Password Window")
         self.on_success = on_success
 
@@ -50,7 +50,7 @@ class App(tkinter.Tk):
 
         self.otp = otp_class.OtpClass()
         self.otp_numbers = {}
-        self.geometry(self.otp.raw_config_data.get("main_geometry", None))
+        self.geometry(self.otp.config.get("main_geometry", None))
 
         # --- Statischer Frame für die Kontroll-Buttons ---
         control_frame = tkinter.Frame(self)
@@ -131,7 +131,7 @@ class App(tkinter.Tk):
         """Wird ausgeführt, wenn das Fenster geschlossen wird."""
         logger.info("Closing application and saving settings.")
         # Speichere die Geometrie des Hauptfensters
-        self.otp.raw_config_data.update({"main_geometry": self.geometry()})
+        self.otp.config.set("main_geometry", self.geometry())
         # Speichere die gesamte Konfiguration
         self.otp.save()
         # Schließe das Fenster

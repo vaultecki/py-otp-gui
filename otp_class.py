@@ -1,115 +1,92 @@
 import json
 import logging
 import os
-from configparser import ParsingError
-
+from dataclasses import dataclass, asdict
 import nacl.exceptions
 import pyotp
 import time
 
+import config_manager
 import crypt_utils
 import exceptions
 
 logger = logging.getLogger(__name__)
 
+@dataclass
+class OtpEntry:
+    uri: str
+    created_at: float = time.time()
 
 class OtpClass:
     def __init__(self):
         logger.info("init otp class")
-        # prepare paths
-        self.config_filename = self._get_config_file_filename()
-        self._ensure_config_directory_exists()
+        self.config = config_manager.ConfigManager()
         # init rest of the variables
         self.key = None
         self.is_unlocked = False
         self.decrypted_data = {}
-        # read data from config file
-        self.raw_config_data = self._read_config()
+        self.decrypted_data = {}
+        # Logik zum Initialisieren des Tresors (Salt, etc.)
+        self._initialize_vault()
 
-        # Wenn die Konfiguration leer ist, erstelle eine neue.
-        if not self.raw_config_data:
-            self.is_unlocked = True  # Ein neuer Tresor ist sofort entsperrt
-            self.decrypted_data = {}  # Explizit initialisieren
-            self._create_new_salt()
+    def _initialize_vault(self):
+        logger.debug("_initialize_vault")
+        if not self.config.get("salt"):
+            logger.debug("create new vault - salt")
+            self.is_unlocked = True
+            salt = crypt_utils.CryptoUtils.encode_base64(crypt_utils.CryptoUtils.generate_salt())
+            self.config.set("salt", salt)
         else:
-            # Ein bestehender Tresor muss entsperrt werden
+            logger.debug("vault already exists")
             self.is_unlocked = False
-
-    def _create_new_salt(self):
-        """Erzeugt ein neues Salt für einen neuen Tresor."""
-        salt = crypt_utils.CryptoUtils.encode_base64(crypt_utils.CryptoUtils.generate_salt())
-        self.raw_config_data.update({"salt": salt})
 
     def unlock_with_password(self, password):
         logger.info("set password")
-        salt = crypt_utils.CryptoUtils.decode_base64(self.raw_config_data.get("salt", ""))
+        salt = crypt_utils.CryptoUtils.decode_base64(self.config.get("salt"))
         self.key = crypt_utils.CryptoUtils.derive_key(password, salt)
         self._decrypt()
 
     def set_new_password(self, password):
-        logger.info("set password")
+        logger.info("try to set new password")
         if self.is_unlocked:
-            salt = crypt_utils.CryptoUtils.decode_base64(self.raw_config_data.get("salt", ""))
+            logger.info("setting new password")
+            salt = crypt_utils.CryptoUtils.decode_base64(self.config.get("salt"))
             self.key = crypt_utils.CryptoUtils.derive_key(password, salt)
 
     def _decrypt(self):
         logger.debug("Attempting to decrypt data with provided key.")
         # Es gibt nichts zu tun, wenn kein Schlüssel oder keine Daten vorhanden sind.
-        if not self.key or not self.raw_config_data.get("encrypted", ""):
+        if not self.key or not self.config.get("encrypted"):
             return
 
         try:
-            encrypted = crypt_utils.CryptoUtils.decode_base64(self.raw_config_data.get("encrypted", ""))
+            encrypted = crypt_utils.CryptoUtils.decode_base64(self.config.get("encrypted"))
             text_to_load = crypt_utils.CryptoUtils.decrypt(encrypted, self.key)
             self.decrypted_data = json.loads(text_to_load)
             # Nur bei Erfolg wird der Tresor als entsperrt markiert.
             self.is_unlocked = True
             logger.info("Decryption successful. Vault is unlocked.")
+            for uri in self.decrypted_data.keys():
+                if self.decrypted_data.get(uri).get("date", ""):
+                    self.decrypted_data.update({uri: OtpEntry(uri, self.decrypted_data.get(uri).get("date"))})
+                else:
+                    self.decrypted_data.update({uri: OtpEntry(uri, self.decrypted_data.get(uri).get("created_at"))})
         except nacl.exceptions.CryptoError:
             raise exceptions.InvalidPasswordError(
                 "Entschlüsselung fehlgeschlagen. Wahrscheinlich ist das Passwort falsch.")
         except (json.JSONDecodeError, TypeError):
             raise exceptions.ConfigFileError("Die Konfigurationsdatei scheint beschädigt zu sein.")
 
-    @staticmethod
-    def _get_config_file_path():
-        logger.info("create config file name")
-        home_dir = os.path.expanduser("~")
-        if os.name in ["nt", "windows"]:
-            home_dir = os.path.join(home_dir, "AppData\\Local\\ThaOTP")
-        else:
-            home_dir = os.path.join(home_dir, ".config/ThaOTP")
-        return home_dir
-
-    def _get_config_file_filename(self):
-        home_dir = self._get_config_file_path()
-        return os.path.join(home_dir, "config.json")
-
-    def _ensure_config_directory_exists(self):
-        home_dir = self._get_config_file_path()
-        if not os.path.exists(home_dir):
-            os.makedirs(home_dir)
-
-    def _read_config(self):
-        logger.debug("open {}".format(self.config_filename))
-        try:
-            with open(self.config_filename, "r", encoding="utf-8") as config_file:
-                return json.load(config_file)
-        except (IOError, json.JSONDecodeError) as err:
-            logger.warning(f"Could not read or parse config file: {err}. Assuming new configuration.")
-            # Gib None oder ein leeres Dict zurück, um den "nicht gefunden"-Fall zu signalisieren
-            return {}
-
     def save(self):
         logger.info("writing logs")
         if self.decrypted_data:
-            json_string = json.dumps(self.decrypted_data)
+            data_to_save = {uri: asdict(entry) for uri, entry in self.decrypted_data.items()}
+            json_string = json.dumps(data_to_save)
             encrypted_string = self._encrypt_data(json_string)
-            self.raw_config_data.update({"encrypted": encrypted_string})
+            self.config.set("encrypted", encrypted_string)
 
         try:
-            with open(self.config_filename, "w", encoding="utf-8") as config_file:
-                json.dump(self.raw_config_data, config_file, indent=4)
+            self.config.save()
         except IOError as e:
             logger.error(f"Error writing config to file: {e}")
 
@@ -129,7 +106,9 @@ class OtpClass:
                 pyotp.parse_uri(uri)
             except Exception as err:
                 raise exceptions.UriError(f"Could not read or parse uri: {err}.")
-            self.decrypted_data.update({uri: {"date": date}})
+            entry = OtpEntry(uri=uri)
+            # decrypted_data würde jetzt OtpEntry-Objekte speichern
+            self.decrypted_data[uri] = entry
 
     def gen_otp_number(self, uri, date=time.time()):
         logger.debug("gen one time number for otp uri: {}".format(uri))
@@ -139,8 +118,8 @@ class OtpClass:
         return -1
 
     def created(self, uri):
-        if self.decrypted_data.get(uri, False):
-            return self.decrypted_data.get(uri, {}).get("date", 0)
+        if self.decrypted_data:
+            return self.decrypted_data.get(uri, OtpEntry("no_entry", 0)).created_at
         else:
             return 0
 
