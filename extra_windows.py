@@ -14,7 +14,7 @@ class AddOtp(tkinter.Toplevel):
         super().__init__(master)
         logger.info("add otp entry display window")
         self.title("Add Otp Entry")
-        self.geometry(self.master.otp.raw_config_data.get("otp_add_geometry", None))
+        self.geometry(self.master.otp.config.get("otp_add_geometry", None))
 
         tkinter.Label(self, text="Hi").grid(row=0, column=0, padx=5, pady=5)
 
@@ -76,7 +76,7 @@ class ChangePw(tkinter.Toplevel):
         super().__init__(master)
         logger.info("change pw")
         self.title("Change PW")
-        self.geometry(self.master.otp.raw_config_data.get("pw_change_geometry", None))
+        self.geometry(self.master.otp.config.get("pw_change_geometry", None))
 
         tkinter.Label(self, text="set new pw").grid(row=0, column=0)
 
