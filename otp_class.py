@@ -62,15 +62,17 @@ class OtpClass:
         try:
             encrypted = crypt_utils.CryptoUtils.decode_base64(self.config.get("encrypted"))
             text_to_load = crypt_utils.CryptoUtils.decrypt(encrypted, self.key)
-            self.decrypted_data = json.loads(text_to_load)
-            # Nur bei Erfolg wird der Tresor als entsperrt markiert.
+            # Lade die rohen Dictionary-Daten
+            raw_data = json.loads(text_to_load)
+
+            # Wandle die Dictionaries direkt in OtpEntry-Objekte um
+            self.decrypted_data = {
+                uri: OtpEntry(**data) for uri, data in raw_data.items()
+            }
+
             self.is_unlocked = True
             logger.info("Decryption successful. Vault is unlocked.")
-            for uri in self.decrypted_data.keys():
-                if self.decrypted_data.get(uri).get("date", ""):
-                    self.decrypted_data.update({uri: OtpEntry(uri, self.decrypted_data.get(uri).get("date"))})
-                else:
-                    self.decrypted_data.update({uri: OtpEntry(uri, self.decrypted_data.get(uri).get("created_at"))})
+
         except nacl.exceptions.CryptoError:
             raise exceptions.InvalidPasswordError(
                 "Entschlüsselung fehlgeschlagen. Wahrscheinlich ist das Passwort falsch.")
