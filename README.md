@@ -37,8 +37,8 @@ A secure, feature-rich One-Time Password (OTP) manager with encrypted storage, b
 ### 1. Clone or Download
 
 ```bash
-git clone https://github.com/yourusername/thaotp.git
-cd thaotp
+git clone project
+cd project
 ```
 
 ### 2. Install Dependencies
@@ -309,7 +309,7 @@ For issues, questions, or feature requests:
 
 ## 📊 Version History
 
-### v1.0.0 (Current)
+### v0.1.1 (Current)
 - Initial release
 - Encrypted OTP storage
 - QR code support
