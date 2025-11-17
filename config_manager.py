@@ -1,3 +1,6 @@
+# Copyright [2025] [ecki]
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Configuration Manager Module - Handles application configuration storage.
 

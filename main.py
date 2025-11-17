@@ -1,3 +1,6 @@
+# Copyright [2025] [ecki]
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Main GUI Module - OTP Manager Application.
 
@@ -197,20 +200,25 @@ class App(tkinter.Tk):
                                   command=lambda u=uri: self.copy_to_clipboard(u))
         copy_btn.grid(row=row_index, column=1, padx=2, pady=2)
 
+        # QR Code button
+        qr_btn = tkinter.Button(parent_frame, text="🔲",
+                                command=lambda u=uri: self.show_qr_code(u))
+        qr_btn.grid(row=row_index, column=2, padx=2, pady=2)
+
         # Name/URI
         name_text = entry.name if entry.name != "Unknown" else uri[:60]
         name_label = tkinter.Label(parent_frame, text=name_text, anchor="w")
-        name_label.grid(row=row_index, column=2, padx=5, pady=2, sticky="w")
+        name_label.grid(row=row_index, column=3, padx=5, pady=2, sticky="w")
 
         # Created date
         time_str = time.strftime("%Y-%m-%d %H:%M", time.localtime(entry.created_at))
         date_label = tkinter.Label(parent_frame, text=f"Created: {time_str}", fg="gray")
-        date_label.grid(row=row_index, column=3, padx=5, pady=2)
+        date_label.grid(row=row_index, column=4, padx=5, pady=2)
 
         # Delete button
         delete_btn = tkinter.Button(parent_frame, text="Delete",
                                     command=lambda u=uri: self.delete(u))
-        delete_btn.grid(row=row_index, column=4, padx=5, pady=2)
+        delete_btn.grid(row=row_index, column=5, padx=5, pady=2)
 
     def copy_to_clipboard(self, uri: str):
         """
@@ -323,7 +331,7 @@ class App(tkinter.Tk):
             load_more_btn = tkinter.Button(self.otp_list_frame,
                                            text=f"Load More ({len(sorted_uris) - LAZY_LOAD_BATCH_SIZE} remaining)",
                                            command=lambda: self._load_more_entries(sorted_uris))
-            load_more_btn.grid(row=len(self.displayed_uris), column=0, columnspan=5, pady=10)
+            load_more_btn.grid(row=len(self.displayed_uris), column=0, columnspan=6, pady=10)
         else:
             # Display all entries
             for index, uri in enumerate(sorted_uris):
@@ -353,7 +361,19 @@ class App(tkinter.Tk):
             load_more_btn = tkinter.Button(self.otp_list_frame,
                                            text=f"Load More ({len(all_uris) - len(self.displayed_uris)} remaining)",
                                            command=lambda: self._load_more_entries(all_uris))
-            load_more_btn.grid(row=len(self.displayed_uris), column=0, columnspan=5, pady=10)
+            load_more_btn.grid(row=len(self.displayed_uris), column=0, columnspan=6, pady=10)
+
+    def show_qr_code(self, uri: str):
+        """
+        Show QR code window for OTP entry.
+
+        Args:
+            uri: URI to display as QR code
+        """
+        logger.info("Opening QR code window")
+        entry = self.otp.get_entry(uri)
+        if entry:
+            extra_windows.QRCodeWindow(self, uri, entry.name)
 
     def on_search_change(self, event=None):
         """Handle search input change."""
