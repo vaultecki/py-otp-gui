@@ -1,4 +1,4 @@
-# ThaOTP - Secure OTP Manager
+# VaultOTP - Secure OTP Manager
 
 A secure, feature-rich One-Time Password (OTP) manager with encrypted storage, built with Python and Tkinter.
 
