@@ -32,6 +32,11 @@ A secure, feature-rich One-Time Password (OTP) manager with encrypted storage, b
 - Python 3.8 or higher
 - Operating System: Windows, Linux, or macOS
 
+> **Note:** On very new Python releases, `opencv-python` (and its `numpy`
+> dependency) may not yet publish prebuilt wheels, which makes `pip install`
+> try to compile numpy from source and fail. If that happens, use a Python
+> version with existing wheels (e.g. 3.11–3.13) until upstream catches up.
+
 ## 🚀 Installation
 
 ### 1. Clone or Download
@@ -129,17 +134,19 @@ python main.py
 ## 📁 File Structure
 
 ```
-thaotp/
-├── main.py              # Main application window
-├── otp_class.py         # OTP vault logic
-├── extra_windows.py     # Dialog windows
-├── config_manager.py    # Configuration storage
-├── crypt_utils.py       # Encryption utilities
-├── qr_generator.py      # QR code generation
-├── service.py           # QR code reading
-├── exceptions.py        # Custom exceptions
-├── requirements.txt     # Dependencies
-└── README.md           # This file
+py-otp-gui/
+├── main.py                  # Main application window
+├── otp_class.py             # OTP vault logic
+├── extra_windows.py         # Dialog windows
+├── config_manager.py        # Configuration storage
+├── crypt_utils.py           # Encryption utilities
+├── qr_generator.py          # QR code generation
+├── service.py               # QR code reading
+├── exceptions.py            # Custom exceptions
+├── tests/                   # pytest test suite
+├── requirements.txt         # Runtime dependencies
+├── requirements-dev.txt     # + pytest, ruff
+└── README.md                # This file
 ```
 
 ## 💾 Data Storage
@@ -313,7 +320,15 @@ For issues, questions, or feature requests:
 
 ## 📊 Version History
 
-### v0.1.1 (Current)
+### v0.1.2 (Current)
+- Fixed a timer leak where every search/sort/add/delete started an extra,
+  never-cancelled OTP refresh loop
+- Sensitive values (password, derived key) are now stored in mutable
+  `bytearray`s so clearing them actually zeroes the memory in place
+- Added a `pytest` test suite covering `crypt_utils` and `otp_class`
+- Project is now `ruff`-clean; removed unused dead code
+
+### v0.1.1
 - Initial release
 - Encrypted OTP storage
 - QR code support
