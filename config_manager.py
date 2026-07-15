@@ -81,6 +81,12 @@ class ConfigManager:
                 logger.error(f"Failed to create config directory: {e}")
                 raise
 
+        try:
+            # Restrict to owner-only so other local users can't read the vault
+            os.chmod(self.config_path, 0o700)
+        except OSError as e:
+            logger.warning(f"Could not set config directory permissions: {e}")
+
     def load(self) -> None:
         """
         Load configuration from file.
@@ -120,6 +126,12 @@ class ConfigManager:
 
             with open(self.config_file, "w", encoding="utf-8") as f:
                 json.dump(self.data, f, indent=4, ensure_ascii=False)
+
+            try:
+                # Restrict to owner-only so other local users can't read the vault
+                os.chmod(self.config_file, 0o600)
+            except OSError as e:
+                logger.warning(f"Could not set config file permissions: {e}")
 
             logger.debug(f"Saved config with {len(self.data)} entries")
 

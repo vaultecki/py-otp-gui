@@ -312,6 +312,12 @@ class OtpClass:
             backup_file = f"{self.config.config_file}.backup_{timestamp}"
 
             shutil.copy2(self.config.config_file, backup_file)
+            try:
+                # copy2 preserves the source file's mode, but set it explicitly
+                # so backups stay owner-only regardless
+                os.chmod(backup_file, 0o600)
+            except OSError as e:
+                logger.warning(f"Could not set backup file permissions: {e}")
             logger.info(f"Backup created: {backup_file}")
 
         except Exception as e:
@@ -545,6 +551,12 @@ class OtpClass:
 
             with open(filepath, 'w', encoding='utf-8') as f:
                 json.dump(export_data, f, indent=2, ensure_ascii=False)
+
+            try:
+                # Exported data is plaintext, so keep it owner-only
+                os.chmod(filepath, 0o600)
+            except OSError as e:
+                logger.warning(f"Could not set export file permissions: {e}")
 
             logger.info(f"Export successful: {filepath}")
 

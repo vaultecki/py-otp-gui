@@ -152,6 +152,9 @@ class App(tkinter.Tk):
         control_frame = tkinter.Frame(self)
         control_frame.pack(side="bottom", fill="x", pady=10)
 
+        tkinter.Button(control_frame, text="Lock Vault",
+                       command=self.on_click_lock).pack(side="left", padx=5)
+
         tkinter.Button(control_frame, text="Change Password",
                        command=self.on_click_pw_change).pack(side="left", padx=5)
 
@@ -178,16 +181,25 @@ class App(tkinter.Tk):
         self.canvas.itemconfig(self.canvas_window, width=event.width)
 
     def _on_mousewheel(self, event):
-        """Handle mouse wheel scrolling."""
-        self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        """Handle mouse wheel scrolling (Windows/Mac <MouseWheel>, X11 Button-4/5)."""
+        if event.num == 4:
+            self.canvas.yview_scroll(-1, "units")
+        elif event.num == 5:
+            self.canvas.yview_scroll(1, "units")
+        else:
+            self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
     def bind_mousewheel(self):
         """(Re-)enable list scrolling. Call after a modal dialog closes."""
         self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-4>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-5>", self._on_mousewheel)
 
     def unbind_mousewheel(self):
         """Disable list scrolling. Call while a modal dialog is open."""
         self.canvas.unbind_all("<MouseWheel>")
+        self.canvas.unbind_all("<Button-4>")
+        self.canvas.unbind_all("<Button-5>")
 
     def _show_status(self, message: str, duration_ms: int = 3000):
         """Show a transient, non-blocking status message instead of a dialog."""
@@ -461,6 +473,38 @@ class App(tkinter.Tk):
         logger.info("Opening password change dialog")
         if self.otp.is_unlocked:
             extra_windows.ChangePw(self)
+
+    def on_click_lock(self):
+        """Lock the vault and prompt for the password again."""
+        if not self.otp.is_unlocked:
+            return
+
+        logger.info("Locking vault via UI")
+
+        # Stop background timers while locked
+        if self.otp_update_timer:
+            self.after_cancel(self.otp_update_timer)
+            self.otp_update_timer = None
+        if self.clipboard_clear_timer:
+            self.after_cancel(self.clipboard_clear_timer)
+            self.clipboard_clear_timer = None
+        if self.status_clear_timer:
+            self.after_cancel(self.status_clear_timer)
+            self.status_clear_timer = None
+
+        # Don't leave a copied code sitting in the clipboard past a lock
+        self._auto_clear_clipboard()
+
+        self.otp.lock()
+
+        # Clear the displayed entries
+        for widget in self.otp_list_frame.winfo_children():
+            widget.destroy()
+        self.otp_numbers.clear()
+        self.count_label.config(text="Entries: 0")
+        self.status_var.set("")
+
+        PasswordWindow(self, on_success=self.on_vault_unlocked)
 
     def on_click_export(self):
         """Export OTP entries to JSON file."""
