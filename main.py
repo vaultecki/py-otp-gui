@@ -46,6 +46,11 @@ class PasswordWindow(tkinter.Toplevel):
         self.transient(master)
         self.grab_set()
 
+        # Suspend the main window's global mousewheel binding while this
+        # modal dialog is open, and restore it once the dialog closes.
+        master.unbind_mousewheel()
+        self.bind("<Destroy>", lambda e: master.bind_mousewheel())
+
     def send_password(self):
         """Attempt to unlock vault with entered password."""
         logger.info("Password button clicked")
@@ -73,6 +78,7 @@ class App(tkinter.Tk):
         self.current_sort = otp_class.SortOrder.NAME_ASC
         self.clipboard_clear_timer = None
         self.otp_update_timer = None
+        self.status_clear_timer = None
 
         self.geometry(self.otp.config.get("main_geometry", "1000x600"))
 
@@ -136,8 +142,11 @@ class App(tkinter.Tk):
         self.otp_list_frame.bind('<Configure>', self._on_frame_configure)
         self.canvas.bind('<Configure>', self._on_canvas_configure)
 
-        # Mouse wheel scrolling
-        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        # Mouse wheel scrolling (bound/unbound around modal dialogs, see
+        # bind_mousewheel/unbind_mousewheel - bind_all reaches every widget
+        # in the process, including Toplevel dialogs, so it must be switched
+        # off while one is open or it scrolls the list underneath them)
+        self.bind_mousewheel()
 
         # --- Bottom Frame: Control Buttons ---
         control_frame = tkinter.Frame(self)
@@ -155,6 +164,11 @@ class App(tkinter.Tk):
         tkinter.Button(control_frame, text="Add OTP URL",
                        command=self.on_click_add).pack(side="right", padx=5)
 
+        # Transient status message (e.g. "Copied!") instead of a blocking dialog
+        self.status_var = tkinter.StringVar(value="")
+        self.status_label = tkinter.Label(control_frame, textvariable=self.status_var, fg="green")
+        self.status_label.pack(side="left", padx=15)
+
     def _on_frame_configure(self, event=None):
         """Update scrollregion when frame size changes."""
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
@@ -166,6 +180,21 @@ class App(tkinter.Tk):
     def _on_mousewheel(self, event):
         """Handle mouse wheel scrolling."""
         self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+    def bind_mousewheel(self):
+        """(Re-)enable list scrolling. Call after a modal dialog closes."""
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+
+    def unbind_mousewheel(self):
+        """Disable list scrolling. Call while a modal dialog is open."""
+        self.canvas.unbind_all("<MouseWheel>")
+
+    def _show_status(self, message: str, duration_ms: int = 3000):
+        """Show a transient, non-blocking status message instead of a dialog."""
+        self.status_var.set(message)
+        if self.status_clear_timer:
+            self.after_cancel(self.status_clear_timer)
+        self.status_clear_timer = self.after(duration_ms, lambda: self.status_var.set(""))
 
     def on_vault_unlocked(self):
         """Called when vault is successfully unlocked."""
@@ -233,10 +262,8 @@ class App(tkinter.Tk):
             self.clipboard_append(code)
             logger.info("Copied OTP to clipboard")
 
-            # Show feedback
-            tkinter.messagebox.showinfo("Copied",
-                                        "OTP code copied to clipboard!\nWill auto-clear in 30 seconds.",
-                                        parent=self)
+            # Show feedback without blocking further copies
+            self._show_status("Copied! Clipboard clears in 30s")
 
             # Cancel previous timer if exists
             if self.clipboard_clear_timer:
@@ -486,6 +513,10 @@ class App(tkinter.Tk):
         # Cancel OTP update timer
         if self.otp_update_timer:
             self.after_cancel(self.otp_update_timer)
+
+        # Cancel status message timer
+        if self.status_clear_timer:
+            self.after_cancel(self.status_clear_timer)
 
         # Save window geometry
         self.otp.config.set("main_geometry", self.geometry())

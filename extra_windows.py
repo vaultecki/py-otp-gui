@@ -76,6 +76,11 @@ class AddOtp(tkinter.Toplevel):
         self.transient(master)
         self.grab_set()
 
+        # Suspend the main window's global mousewheel binding while this
+        # modal dialog is open, and restore it once the dialog closes.
+        master.unbind_mousewheel()
+        self.bind("<Destroy>", lambda e: master.bind_mousewheel())
+
     def click_button_filemanager(self):
         """Open file dialog to select QR code image."""
         logger.debug("Opening file manager to choose file")
@@ -171,6 +176,11 @@ class ChangePw(tkinter.Toplevel):
         self.transient(master)
         self.grab_set()
 
+        # Suspend the main window's global mousewheel binding while this
+        # modal dialog is open, and restore it once the dialog closes.
+        master.unbind_mousewheel()
+        self.bind("<Destroy>", lambda e: master.bind_mousewheel())
+
     def on_click_set(self):
         """Set new password after validation."""
         logger.info("Attempting to set new password")
@@ -207,6 +217,11 @@ class QRCodeWindow(tkinter.Toplevel):
         self.geometry("450x550")
         self.uri = uri
         self.name = name
+
+        # Suspend the main window's global mousewheel binding while this
+        # modal dialog is open, and restore it once the dialog closes.
+        master.unbind_mousewheel()
+        self.bind("<Destroy>", lambda e: master.bind_mousewheel())
 
         # Check if QR generator is available
         if not QR_AVAILABLE:
@@ -320,7 +335,7 @@ class QRCodeWindow(tkinter.Toplevel):
         try:
             self.clipboard_clear()
             self.clipboard_append(self.uri)
-            messagebox.showinfo("Copied", "OTP URI copied to clipboard!")
+            self.master._show_status("URI copied to clipboard!")
         except Exception as e:
             messagebox.showerror("Error", f"Could not copy URI: {e}")
 

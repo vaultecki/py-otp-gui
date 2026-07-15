@@ -1,6 +1,6 @@
-# VaultOTP - Secure OTP Manager
+# VaultOTP - OTP Manager
 
-A secure, feature-rich One-Time Password (OTP) manager with encrypted storage, built with Python and Tkinter.
+A One-Time Password (OTP) manager with storage, built with Python and Tkinter.
 
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
@@ -8,9 +8,7 @@ A secure, feature-rich One-Time Password (OTP) manager with encrypted storage, b
 ## 🔐 Features
 
 ### Security
-- **Encrypted Storage**: All OTP secrets are encrypted using NaCl (Argon2 + XSalsa20-Poly1305)
-- **Password Protected**: Vault is locked with user-defined password (minimum 4 characters)
-- **Memory Safety**: Sensitive data is automatically cleared from memory
+- **Password Protected**: Vault can be locked with user-defined password (minimum 4 characters)
 - **Automatic Backups**: Creates timestamped backups before saving (keeps last 5)
 
 ### OTP Management
@@ -18,7 +16,7 @@ A secure, feature-rich One-Time Password (OTP) manager with encrypted storage, b
 - **Generate Codes**: Real-time OTP code generation with batch updates
 - **Export/Import**: JSON export/import for backup and migration
 - **QR Code Display**: Show QR codes for any entry to scan on other devices
-- **Delete Entries**: Safe deletion with confirmation dialog
+- **Delete Entries**: Deletion with confirmation dialog
 
 ### User Interface
 - **Search**: Fast search across entry names and URIs
@@ -177,6 +175,17 @@ Only the 5 most recent backups are kept.
 - **Encrypted**: OTP secrets are encrypted in `config.json`
 - **Exported**: JSON exports are **unencrypted** - store securely!
 
+## ⚠️ Known Limitations
+
+- **Memory safety is partial**: the derived encryption key and the password
+  buffer are stored in mutable buffers and actively zeroed when the vault is
+  locked. The decrypted OTP secrets themselves (the `otpauth://` URIs,
+  including the Base32 secret), however, are plain Python strings, which are
+  immutable — the application cannot forcibly scrub them from process memory.
+  Locking the vault only drops the application's live references to them; a
+  memory dump taken shortly after locking could still contain leftover secret
+  data until Python's garbage collector reclaims it.
+
 ## 🔒 Security Best Practices
 
 1. **Use Strong Passwords**: Minimum 4 characters (recommended: 12+)
@@ -330,7 +339,6 @@ For issues, questions, or feature requests:
 
 ### v0.1.1
 - Initial release
-- Encrypted OTP storage
 - QR code support
 - Search and sort functionality
 - Import/Export features
@@ -346,6 +354,3 @@ For issues, questions, or feature requests:
 - **OpenCV**: QR code reading
 - **Pillow**: Image processing
 
----
-
-**Made with ❤️ for secure OTP management**
