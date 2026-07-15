@@ -11,7 +11,7 @@ directory creation and error handling.
 import json
 import os
 import logging
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 

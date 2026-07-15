@@ -12,7 +12,6 @@ import tkinter.messagebox
 from tkinter import ttk, filedialog
 import logging
 import time
-import threading
 
 import otp_class
 import exceptions
@@ -73,6 +72,7 @@ class App(tkinter.Tk):
         self.current_filter = ""
         self.current_sort = otp_class.SortOrder.NAME_ASC
         self.clipboard_clear_timer = None
+        self.otp_update_timer = None
 
         self.geometry(self.otp.config.get("main_geometry", "1000x600"))
 
@@ -235,7 +235,7 @@ class App(tkinter.Tk):
 
             # Show feedback
             tkinter.messagebox.showinfo("Copied",
-                                        f"OTP code copied to clipboard!\nWill auto-clear in 30 seconds.",
+                                        "OTP code copied to clipboard!\nWill auto-clear in 30 seconds.",
                                         parent=self)
 
             # Cancel previous timer if exists
@@ -272,7 +272,7 @@ class App(tkinter.Tk):
                 number_var.set(codes[uri])
 
         # Schedule next update
-        self.after(5000, self._update_all_otps)
+        self.otp_update_timer = self.after(5000, self._update_all_otps)
 
     def update_rows(self, lazy_load: bool = True):
         """
@@ -337,7 +337,10 @@ class App(tkinter.Tk):
             for index, uri in enumerate(sorted_uris):
                 self.create_row(uri, index)
 
-        # Start OTP update timer
+        # Restart OTP update timer (cancel any existing chain to avoid stacking timers)
+        if self.otp_update_timer:
+            self.after_cancel(self.otp_update_timer)
+            self.otp_update_timer = None
         self._update_all_otps()
 
     def _load_more_entries(self, all_uris: list):
@@ -409,7 +412,7 @@ class App(tkinter.Tk):
         Args:
             uri_to_delete: URI to delete
         """
-        logger.info(f"Attempting to delete entry")
+        logger.info("Attempting to delete entry")
 
         entry = self.otp.get_entry(uri_to_delete)
         name = entry.name if entry else uri_to_delete[:50]
@@ -479,6 +482,10 @@ class App(tkinter.Tk):
         # Cancel clipboard clear timer
         if self.clipboard_clear_timer:
             self.after_cancel(self.clipboard_clear_timer)
+
+        # Cancel OTP update timer
+        if self.otp_update_timer:
+            self.after_cancel(self.otp_update_timer)
 
         # Save window geometry
         self.otp.config.set("main_geometry", self.geometry())

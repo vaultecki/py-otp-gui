@@ -7,7 +7,6 @@ QR Code Generator Module - Creates QR codes from OTP URIs.
 This module generates QR codes that can be scanned by authenticator apps.
 """
 
-import io
 import logging
 from typing import Optional
 from PIL import Image, ImageTk

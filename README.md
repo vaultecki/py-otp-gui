@@ -262,11 +262,15 @@ logging.basicConfig(level=logging.DEBUG)
 
 ### Running Tests
 
-Test individual modules:
+Install dev dependencies and run the test suite with pytest:
 ```bash
-python config_manager.py
-python crypt_utils.py
-python qr_generator.py
+pip install -r requirements-dev.txt
+pytest
+```
+
+Lint with ruff:
+```bash
+ruff check .
 ```
 
 ## 🤝 Contributing

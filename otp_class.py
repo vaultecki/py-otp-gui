@@ -12,7 +12,7 @@ import json
 import logging
 import os
 import shutil
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from typing import Dict, Optional, List, Tuple
 from datetime import datetime
 from enum import Enum
@@ -44,7 +44,7 @@ class SortOrder(Enum):
 class OtpEntry:
     """Represents a single OTP entry with URI and creation timestamp."""
     uri: str
-    created_at: float = time.time()
+    created_at: float = field(default_factory=time.time)
 
     @property
     def name(self) -> str:
@@ -52,7 +52,7 @@ class OtpEntry:
         try:
             parsed = pyotp.parse_uri(self.uri)
             return parsed.name if hasattr(parsed, 'name') else self._extract_name_from_uri()
-        except:
+        except Exception:
             return self._extract_name_from_uri()
 
     def _extract_name_from_uri(self) -> str:
@@ -65,7 +65,7 @@ class OtpEntry:
                     name_part = parts[3].split("?")[0]
                     return name_part.replace("%20", " ")
             return self.uri[:50]  # Fallback to first 50 chars
-        except:
+        except Exception:
             return "Unknown"
 
 
@@ -78,17 +78,21 @@ class SecureString:
     """
 
     def __init__(self, value: str):
-        self._value = value
+        # bytearray is mutable, unlike str/bytes, so clear() can actually
+        # overwrite the underlying memory instead of just rebinding the name
+        self._value: Optional[bytearray] = bytearray(value.encode("utf-8")) if value else None
 
     def get(self) -> str:
         """Get the secure string value."""
-        return self._value
+        if self._value is None:
+            return ""
+        return self._value.decode("utf-8")
 
     def clear(self) -> None:
         """Clear the string from memory."""
         if self._value:
-            # Overwrite with zeros
-            self._value = '\0' * len(self._value)
+            for i in range(len(self._value)):
+                self._value[i] = 0
             self._value = None
 
     def __del__(self):
@@ -114,7 +118,9 @@ class OtpClass:
         """Initialize the OTP manager."""
         logger.info("Initializing OTP class")
         self.config = config_manager.ConfigManager()
-        self.key: Optional[bytes] = None
+        # bytearray so it can be zeroed in place on lock/clear; nacl needs
+        # plain `bytes`, so callers convert transiently via bytes(self.key)
+        self.key: Optional[bytearray] = None
         self.is_unlocked: bool = False
         self.decrypted_data: Dict[str, OtpEntry] = {}
         self._password_buffer: Optional[SecureString] = None
@@ -163,9 +169,9 @@ class OtpClass:
 
         try:
             salt = crypt_utils.CryptoUtils.decode_base64(self.config.get("salt"))
-            self.key = crypt_utils.CryptoUtils.derive_key(password, salt)
+            self.key = bytearray(crypt_utils.CryptoUtils.derive_key(password, salt))
             self._decrypt()
-        except Exception as e:
+        except Exception:
             # Clear sensitive data on failure
             self._clear_sensitive_data()
             raise
@@ -203,7 +209,7 @@ class OtpClass:
         self._password_buffer = SecureString(password)
 
         salt = crypt_utils.CryptoUtils.decode_base64(self.config.get("salt"))
-        self.key = crypt_utils.CryptoUtils.derive_key(password, salt)
+        self.key = bytearray(crypt_utils.CryptoUtils.derive_key(password, salt))
 
         logger.info("Password updated successfully")
 
@@ -229,7 +235,7 @@ class OtpClass:
 
         try:
             encrypted = crypt_utils.CryptoUtils.decode_base64(encrypted_data)
-            decrypted_bytes = crypt_utils.CryptoUtils.decrypt(encrypted, self.key)
+            decrypted_bytes = crypt_utils.CryptoUtils.decrypt(encrypted, bytes(self.key))
             raw_data = json.loads(decrypted_bytes)
 
             self.decrypted_data = {
@@ -360,7 +366,7 @@ class OtpClass:
             raise ValueError("Kein Verschlüsselungsschlüssel verfügbar")
 
         encrypted_bytes = crypt_utils.CryptoUtils.encrypt(
-            data_to_encrypt.encode("utf-8"), self.key
+            data_to_encrypt.encode("utf-8"), bytes(self.key)
         )
         return crypt_utils.CryptoUtils.encode_base64(encrypted_bytes)
 
@@ -663,8 +669,9 @@ class OtpClass:
             self._password_buffer = None
 
         if self.key:
-            # Overwrite key with zeros
-            self.key = b'\0' * len(self.key)
+            # Overwrite key in place with zeros (bytearray is mutable, unlike bytes)
+            for i in range(len(self.key)):
+                self.key[i] = 0
             self.key = None
 
         # Clear OTP cache

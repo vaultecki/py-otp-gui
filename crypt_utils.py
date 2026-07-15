@@ -10,7 +10,6 @@ encryption using Argon2 key derivation and XSalsa20-Poly1305 authenticated encry
 
 import base64
 import logging
-from typing import Union
 
 import nacl.secret
 import nacl.utils
@@ -149,7 +148,7 @@ class CryptoUtils:
             decrypted = box.decrypt(encrypted_data)
             logger.debug(f"Decrypted to {len(decrypted)} bytes")
             return decrypted
-        except nacl.exceptions.CryptoError as e:
+        except nacl.exceptions.CryptoError:
             logger.error("Decryption failed - wrong key or corrupted data")
             raise
         except Exception as e:
@@ -198,30 +197,6 @@ class CryptoUtils:
         except Exception as e:
             logger.error(f"Base64 decoding failed: {e}")
             raise ValueError(f"Ungültiger Base64 String: {e}")
-
-
-def secure_compare(a: Union[str, bytes], b: Union[str, bytes]) -> bool:
-    """
-    Timing-safe string/bytes comparison.
-
-    Args:
-        a: First value
-        b: Second value
-
-    Returns:
-        True if equal, False otherwise
-
-    Note:
-        Use this for comparing passwords or tokens to prevent timing attacks
-    """
-    if type(a) != type(b):
-        return False
-
-    if isinstance(a, str):
-        a = a.encode('utf-8')
-        b = b.encode('utf-8')
-
-    return nacl.utils.bytes_eq(a, b)
 
 
 if __name__ == '__main__':
