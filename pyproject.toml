@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vaultotp"
+version = "0.1.2"
+description = "OTP manager with encrypted storage, built with Python and Tkinter"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "Apache-2.0" }
+dependencies = [
+    "pillow>=11.3.0",
+    "PyNaCl>=1.5.0",
+    "opencv-python~=4.12.0.88",
+    "pyotp~=2.9.0",
+    "qrcode~=8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.15",
+    "mypy>=1.10",
+    "pre-commit>=4.0",
+]
+
+[tool.setuptools]
+py-modules = [
+    "main",
+    "otp_class",
+    "extra_windows",
+    "config_manager",
+    "crypt_utils",
+    "qr_generator",
+    "service",
+    "exceptions",
+]
+
+[tool.ruff]
+target-version = "py38"
+line-length = 110
+exclude = ["venv"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific rules
+    "PTH",  # flake8-use-pathlib
+]
+
+[tool.mypy]
+ignore_missing_imports = true
+exclude = ["venv"]

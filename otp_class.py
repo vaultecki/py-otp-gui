@@ -10,15 +10,16 @@ with encryption, password protection, and automatic backup functionality.
 
 import json
 import logging
-import os
 import shutil
-from dataclasses import dataclass, asdict, field
-from typing import Dict, Optional, List, Tuple
+import time
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
 import nacl.exceptions
 import pyotp
-import time
 
 import config_manager
 import crypt_utils
@@ -114,7 +115,7 @@ class OtpClass:
     - Batch OTP generation
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the OTP manager."""
         logger.info("Initializing OTP class")
         self.config = config_manager.ConfigManager()
@@ -249,12 +250,12 @@ class OtpClass:
             logger.error(f"Decryption failed: {e}")
             raise exceptions.InvalidPasswordError(
                 "Entschlüsselung fehlgeschlagen. Das Passwort ist wahrscheinlich falsch."
-            )
+            ) from e
         except (json.JSONDecodeError, TypeError, KeyError) as e:
             logger.error(f"Data parsing failed: {e}")
             raise exceptions.ConfigFileError(
                 f"Die Konfigurationsdatei scheint beschädigt zu sein: {e}"
-            )
+            ) from e
 
     def save(self) -> None:
         """
@@ -293,9 +294,9 @@ class OtpClass:
             # Clean up old backups
             self._rotate_backups()
 
-        except IOError as e:
+        except OSError as e:
             logger.error(f"Error writing config to file: {e}")
-            raise exceptions.ConfigFileError(f"Speichern fehlgeschlagen: {e}")
+            raise exceptions.ConfigFileError(f"Speichern fehlgeschlagen: {e}") from e
 
     def _create_backup(self) -> None:
         """
@@ -304,18 +305,20 @@ class OtpClass:
         Backup format: config.json.backup_YYYYMMDD_HHMMSS
         """
         try:
-            if not os.path.exists(self.config.config_file):
+            if not self.config.config_file.exists():
                 logger.debug("No config file to backup")
                 return
 
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_file = f"{self.config.config_file}.backup_{timestamp}"
+            backup_file = self.config.config_file.with_name(
+                self.config.config_file.name + f".backup_{timestamp}"
+            )
 
             shutil.copy2(self.config.config_file, backup_file)
             try:
                 # copy2 preserves the source file's mode, but set it explicitly
                 # so backups stay owner-only regardless
-                os.chmod(backup_file, 0o600)
+                backup_file.chmod(0o600)
             except OSError as e:
                 logger.warning(f"Could not set backup file permissions: {e}")
             logger.info(f"Backup created: {backup_file}")
@@ -331,23 +334,21 @@ class OtpClass:
         Deletes old backups if more than MAX_BACKUP_FILES exist.
         """
         try:
-            backup_dir = os.path.dirname(self.config.config_file)
-            backup_prefix = os.path.basename(self.config.config_file) + ".backup_"
+            backup_dir = self.config.config_file.parent
+            backup_prefix = self.config.config_file.name + ".backup_"
 
             # Find all backup files
             backups = [
-                os.path.join(backup_dir, f)
-                for f in os.listdir(backup_dir)
-                if f.startswith(backup_prefix)
+                f for f in backup_dir.iterdir() if f.name.startswith(backup_prefix)
             ]
 
             # Sort by modification time (newest first)
-            backups.sort(key=os.path.getmtime, reverse=True)
+            backups.sort(key=lambda f: f.stat().st_mtime, reverse=True)
 
             # Delete old backups
             for old_backup in backups[MAX_BACKUP_FILES:]:
                 try:
-                    os.remove(old_backup)
+                    old_backup.unlink()
                     logger.debug(f"Deleted old backup: {old_backup}")
                 except OSError as e:
                     logger.warning(f"Could not delete old backup {old_backup}: {e}")
@@ -376,7 +377,7 @@ class OtpClass:
         )
         return crypt_utils.CryptoUtils.encode_base64(encrypted_bytes)
 
-    def add_uri(self, uri: str, date: float = None) -> None:
+    def add_uri(self, uri: str, date: Optional[float] = None) -> None:
         """
         Add a new OTP URI to the vault.
 
@@ -406,13 +407,13 @@ class OtpClass:
             # Validate URI by parsing it
             pyotp.parse_uri(uri)
         except Exception as err:
-            raise exceptions.UriError(f"Ungültige OTP URI: {err}")
+            raise exceptions.UriError(f"Ungültige OTP URI: {err}") from err
 
         entry = OtpEntry(uri=uri, created_at=date)
         self.decrypted_data[uri] = entry
         logger.info("Successfully added OTP entry")
 
-    def gen_otp_number(self, uri: str, date: float = None) -> str:
+    def gen_otp_number(self, uri: str, date: Optional[float] = None) -> str:
         """
         Generate OTP code for given URI with caching.
 
@@ -437,8 +438,8 @@ class OtpClass:
             return "-1"
 
         try:
-            totp = pyotp.parse_uri(uri)
-            code = totp.at(date)
+            totp: pyotp.TOTP = pyotp.parse_uri(uri)  # type: ignore[assignment]
+            code = totp.at(int(date))
 
             # Cache the code
             self._otp_cache[uri] = (code, date)
@@ -448,7 +449,9 @@ class OtpClass:
             logger.error(f"Error generating OTP: {e}")
             return "-1"
 
-    def gen_otp_batch(self, uris: List[str] = None, date: float = None) -> Dict[str, str]:
+    def gen_otp_batch(
+        self, uris: Optional[List[str]] = None, date: Optional[float] = None
+    ) -> Dict[str, str]:
         """
         Generate OTP codes for multiple URIs at once (batch operation).
 
@@ -549,18 +552,19 @@ class OtpClass:
                 else:
                     export_data[uri] = {"uri": uri}
 
-            with open(filepath, 'w', encoding='utf-8') as f:
+            export_path = Path(filepath)
+            with export_path.open('w', encoding='utf-8') as f:
                 json.dump(export_data, f, indent=2, ensure_ascii=False)
 
             try:
                 # Exported data is plaintext, so keep it owner-only
-                os.chmod(filepath, 0o600)
+                export_path.chmod(0o600)
             except OSError as e:
                 logger.warning(f"Could not set export file permissions: {e}")
 
             logger.info(f"Export successful: {filepath}")
 
-        except IOError as e:
+        except OSError as e:
             logger.error(f"Export failed: {e}")
             raise
 
@@ -586,7 +590,7 @@ class OtpClass:
         logger.info(f"Importing from {filepath}")
 
         try:
-            with open(filepath, 'r', encoding='utf-8') as f:
+            with Path(filepath).open(encoding='utf-8') as f:
                 import_data = json.load(f)
 
             imported = 0
@@ -614,7 +618,7 @@ class OtpClass:
             logger.info(f"Import complete: {imported} imported, {skipped} skipped")
             return imported, skipped
 
-        except (IOError, json.JSONDecodeError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             logger.error(f"Import failed: {e}")
             raise
 

@@ -153,7 +153,7 @@ def get_user_friendly_message(exception: Exception) -> str:
         return error_messages[exception_type]
 
     # Fallback for unknown exceptions
-    return f"Ein unerwarteter Fehler ist aufgetreten: {str(exception)}"
+    return f"Ein unerwarteter Fehler ist aufgetreten: {exception!s}"
 
 
 if __name__ == '__main__':

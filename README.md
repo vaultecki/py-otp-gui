@@ -1,356 +1,142 @@
-# VaultOTP - OTP Manager
+# VaultOTP
 
-A One-Time Password (OTP) manager with storage, built with Python and Tkinter.
+A desktop OTP (TOTP) manager with a Tkinter GUI. Entries are stored encrypted
+in a local JSON config file.
 
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
 
-## 🔐 Features
+## Features
 
-### Security
-- **Password Protected**: Vault can be locked with user-defined password (minimum 4 characters)
-- **Automatic Backups**: Creates timestamped backups before saving (keeps last 5)
+- Password-protected vault (minimum 4 characters)
+- Add entries by scanning a QR code image or pasting an `otpauth://` URI
+- Generate TOTP codes, refreshed automatically every 30 seconds
+- Search and sort entries by name or creation date
+- Lazy-loaded entry list (loads 50 at a time)
+- Copy code to clipboard, with automatic clear after 30 seconds
+- Export/import entries as JSON
+- Show a QR code for an existing entry (e.g. to re-scan on another device)
+- Timestamped backups on save, keeping the 5 most recent
 
-### OTP Management
-- **Add OTP Entries**: Via QR code scanning or manual URI input
-- **Generate Codes**: Real-time OTP code generation with batch updates
-- **Export/Import**: JSON export/import for backup and migration
-- **QR Code Display**: Show QR codes for any entry to scan on other devices
-- **Delete Entries**: Deletion with confirmation dialog
+## Requirements
 
-### User Interface
-- **Search**: Fast search across entry names and URIs
-- **Sorting**: Sort by name or creation date (ascending/descending)
-- **Lazy Loading**: Efficient handling of large entry lists (50 entries per batch)
-- **Clipboard Copy**: One-click copy with auto-clear after 30 seconds
-- **Responsive Design**: Scrollable interface with mouse wheel support
+- Python 3.8+
+- Windows, Linux, or macOS
 
-## 📋 Requirements
+On very recent Python releases, `opencv-python` (and its `numpy` dependency)
+may not yet have prebuilt wheels, which can make `pip install` try to compile
+numpy from source and fail. If that happens, use a Python version with
+existing wheels (e.g. 3.11-3.13) until upstream catches up.
 
-- Python 3.8 or higher
-- Operating System: Windows, Linux, or macOS
-
-> **Note:** On very new Python releases, `opencv-python` (and its `numpy`
-> dependency) may not yet publish prebuilt wheels, which makes `pip install`
-> try to compile numpy from source and fail. If that happens, use a Python
-> version with existing wheels (e.g. 3.11–3.13) until upstream catches up.
-
-## 🚀 Installation
-
-### 1. Clone or Download
+## Installation
 
 ```bash
-git clone project
-cd project
-```
-
-### 2. Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-**Dependencies:**
-- `pillow>=11.3.0` - Image processing
-- `PyNaCl>=1.5.0` - Cryptography
-- `opencv-python~=4.12.0.88` - QR code reading
-- `pyotp~=2.9.0` - OTP generation
-- `qrcode~=8.0` - QR code generation
-
-### 3. Run the Application
-
-```bash
+git clone <repo-url>
+cd py-otp-gui
+pip install .
 python main.py
 ```
 
-## 📖 Usage
+Dependencies: `pillow`, `PyNaCl`, `opencv-python`, `pyotp`, `qrcode`.
 
-### First Time Setup
+## Usage
 
-1. Launch the application
-2. Since no password is set, the vault starts unlocked
-3. Click **"Add OTP URL"** to add your first entry
-4. Click **"Change Password"** to set a password for encryption
+### First run
 
-### Adding OTP Entries
+No password is set initially, so the vault starts unlocked. Add an entry,
+then use "Change Password" to encrypt the vault.
 
-**Method 1: QR Code Scan**
-1. Click **"Add OTP URL"**
-2. Click **"Browse..."** to select a QR code image
-3. Click **"Read QR Code"** to extract the URI
-4. Click **"Add OTP Entry"**
+### Adding entries
 
-**Method 2: Manual Entry**
-1. Click **"Add OTP URL"**
-2. Paste the OTP URI in the "OTP URL" field
-   - Format: `otpauth://totp/Name:user@example.com?secret=...&issuer=Name`
-3. Click **"Add OTP Entry"**
+- **QR code**: "Add OTP URL" → "Browse..." to pick an image → "Read QR Code"
+  → "Add OTP Entry"
+- **Manual**: "Add OTP URL" → paste an `otpauth://totp/...` URI → "Add OTP
+  Entry"
 
-### Using OTP Codes
+### Export / Import
 
-- **Copy Code**: Click 📋 button to copy code to clipboard (auto-clears in 30s)
-- **Show QR Code**: Click 🔲 button to display QR code for the entry
-- **Codes Update**: All codes refresh automatically every 30 seconds
+Export writes an **unencrypted** JSON file containing all entries. Import
+reads such a file and skips duplicates.
 
-### Search and Sort
-
-- **Search**: Type in the search box to filter entries by name or URI
-- **Sort**: Use the dropdown to sort by:
-  - Name ↑ / Name ↓
-  - Date ↑ / Date ↓
-
-### Export and Import
-
-**Export:**
-1. Click **"Export JSON"**
-2. Choose save location
-3. JSON file contains all entries (unencrypted!)
-
-**Import:**
-1. Click **"Import JSON"**
-2. Select JSON file
-3. Duplicates are automatically skipped
-
-### QR Code Features
-
-**Display QR Code:**
-1. Click 🔲 button next to any entry
-2. Scan with your authenticator app
-3. Optionally save as PNG or copy URI
-
-**⚠️ Security Warning:** QR codes contain your secret keys. Store them securely!
-
-### Password Management
-
-**Change Password:**
-1. Click **"Change Password"**
-2. Enter new password twice
-3. Confirm change
-
-**⚠️ Important:** If you forget your password, your data cannot be recovered!
-
-## 📁 File Structure
+## File structure
 
 ```
-py-otp-gui/
-├── main.py                  # Main application window
-├── otp_class.py             # OTP vault logic
-├── extra_windows.py         # Dialog windows
-├── config_manager.py        # Configuration storage
-├── crypt_utils.py           # Encryption utilities
-├── qr_generator.py          # QR code generation
-├── service.py               # QR code reading
-├── exceptions.py            # Custom exceptions
-├── tests/                   # pytest test suite
-├── requirements.txt         # Runtime dependencies
-├── requirements-dev.txt     # + pytest, ruff
-└── README.md                # This file
+main.py             GUI application window
+otp_class.py         vault logic (storage, encryption, OTP generation)
+extra_windows.py     secondary dialog windows
+config_manager.py    config file read/write, backups
+crypt_utils.py        encryption helpers
+qr_generator.py      QR code generation
+service.py           QR code reading
+exceptions.py        custom exception types
+tests/                pytest test suite
 ```
 
-## 💾 Data Storage
+## Data storage
 
-### Configuration Location
+Config file location:
 
-**Windows:**
-```
-%LOCALAPPDATA%\ThaOTP\config.json
-```
+- Windows: `%LOCALAPPDATA%\ThaOTP\config.json`
+- Linux/macOS: `~/.config/ThaOTP/config.json`
 
-**Linux/Mac:**
-```
-~/.config/ThaOTP/config.json
-```
+Backups are written next to the config file as
+`config.json.backup_<timestamp>`; only the 5 most recent are kept.
 
-### Backup Files
+OTP secrets are encrypted in `config.json`. JSON exports are not encrypted.
 
-Automatic backups are created before each save:
-```
-config.json.backup_20241117_143052
-```
+## Known limitations
 
-Only the 5 most recent backups are kept.
+Memory safety is partial. The derived encryption key and the password buffer
+are held in mutable `bytearray`s and are zeroed when the vault is locked.
+Decrypted OTP secrets (the `otpauth://` URIs, including the Base32 secret)
+are plain Python strings, which are immutable, so the application cannot
+forcibly scrub them from memory. Locking the vault only drops the
+application's references to them; a memory dump taken shortly afterward
+could still contain leftover secret data until the garbage collector
+reclaims it.
 
-### Data Format
+## Development
 
-- **Encrypted**: OTP secrets are encrypted in `config.json`
-- **Exported**: JSON exports are **unencrypted** - store securely!
+All dependencies, ruff settings, and mypy settings live in `pyproject.toml`.
+Install dev dependencies:
 
-## ⚠️ Known Limitations
-
-- **Memory safety is partial**: the derived encryption key and the password
-  buffer are stored in mutable buffers and actively zeroed when the vault is
-  locked. The decrypted OTP secrets themselves (the `otpauth://` URIs,
-  including the Base32 secret), however, are plain Python strings, which are
-  immutable — the application cannot forcibly scrub them from process memory.
-  Locking the vault only drops the application's live references to them; a
-  memory dump taken shortly after locking could still contain leftover secret
-  data until Python's garbage collector reclaims it.
-
-## 🔒 Security Best Practices
-
-1. **Use Strong Passwords**: Minimum 4 characters (recommended: 12+)
-2. **Backup Regularly**: Export your entries to a secure location
-3. **Secure QR Codes**: Don't share QR code screenshots
-4. **Lock When Away**: Close the application when not in use
-5. **Verify URIs**: Only add OTP URIs from trusted sources
-
-## 🐛 Troubleshooting
-
-### QR Code Features Not Available
-
-**Error:** `QR Code generation not available`
-
-**Solution:**
 ```bash
-pip install qrcode[pil]
+pip install ".[dev]"
 ```
 
-### Cannot Read QR Code
+Run tests:
 
-**Error:** `Im Bild wurde kein QR-Code gefunden`
-
-**Possible causes:**
-- Image quality too low
-- QR code is damaged
-- Wrong file format
-
-**Solutions:**
-- Use high-resolution images
-- Ensure QR code is clearly visible
-- Try PNG format
-
-### Wrong Password Error
-
-**Error:** `Entschlüsselung fehlgeschlagen`
-
-**Solution:**
-- Check for typos
-- Remember: passwords are case-sensitive
-- If forgotten, data cannot be recovered
-
-### Import Fails
-
-**Error:** `Could not import: ...`
-
-**Solutions:**
-- Check JSON file format
-- Ensure file is not corrupted
-- Verify file contains valid OTP URIs
-
-## 🔧 Advanced Configuration
-
-### Changing Lazy Load Batch Size
-
-Edit `main.py`:
-```python
-LAZY_LOAD_BATCH_SIZE = 50  # Change to desired number
-```
-
-### Changing Clipboard Auto-Clear Time
-
-Edit `main.py`:
-```python
-CLIPBOARD_CLEAR_DELAY_MS = 30000  # Time in milliseconds
-```
-
-### Changing Maximum Backups
-
-Edit `otp_class.py`:
-```python
-MAX_BACKUP_FILES = 5  # Number of backups to keep
-```
-
-## 📝 Development
-
-### Project Structure
-
-- **Model**: `otp_class.py` - Core OTP management logic
-- **View**: `main.py`, `extra_windows.py` - GUI components
-- **Controller**: Event handlers in `main.py`
-- **Utils**: `crypt_utils.py`, `config_manager.py`, `service.py`
-
-### Adding Logging
-
-Enable debug logging:
-```python
-logging.basicConfig(level=logging.DEBUG)
-```
-
-### Running Tests
-
-Install dev dependencies and run the test suite with pytest:
 ```bash
-pip install -r requirements-dev.txt
 pytest
 ```
 
-Lint with ruff:
+Lint:
+
 ```bash
 ruff check .
 ```
 
-## 🤝 Contributing
+Type-check:
 
-Contributions are welcome! Please:
+```bash
+mypy .
+```
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+Pre-commit hooks run automatically once installed: ruff, mypy, and basic file
+hygiene on `git commit`; the (slower) test suite on `git push`.
 
-## 📄 License
+```bash
+pre-commit install --hook-type pre-commit --hook-type pre-push
+```
 
-Copyright [2025] [ecki]
+CI runs the same lint, type-check, and test steps on every push and pull
+request (`.github/workflows/ci.yml`).
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+## License
 
-    http://www.apache.org/licenses/LICENSE-2.0
+Apache License, Version 2.0. See `LICENSE`.
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+## Disclaimer
 
-## ⚠️ Disclaimer
-
-This software is provided "as is", without warranty of any kind. The authors are not responsible for any data loss or security breaches. Always keep backups of your OTP secrets in a secure location.
-
-## 🆘 Support
-
-For issues, questions, or feature requests:
-
-- Create an issue on GitHub
-- Check existing documentation
-- Review troubleshooting section
-
-## 📊 Version History
-
-### v0.1.2 (Current)
-- Fixed a timer leak where every search/sort/add/delete started an extra,
-  never-cancelled OTP refresh loop
-- Sensitive values (password, derived key) are now stored in mutable
-  `bytearray`s so clearing them actually zeroes the memory in place
-- Added a `pytest` test suite covering `crypt_utils` and `otp_class`
-- Project is now `ruff`-clean; removed unused dead code
-
-### v0.1.1
-- Initial release
-- QR code support
-- Search and sort functionality
-- Import/Export features
-- Lazy loading for large lists
-- Clipboard auto-clear
-- Automatic backups
-
-## 👏 Acknowledgments
-
-- **PyOTP**: OTP implementation
-- **PyNaCl**: Cryptography library
-- **qrcode**: QR code generation
-- **OpenCV**: QR code reading
-- **Pillow**: Image processing
-
+Provided "as is", without warranty of any kind. Keep independent backups of
+your OTP secrets.

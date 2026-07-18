@@ -7,15 +7,15 @@ Main GUI Module - OTP Manager Application.
 Provides the main window with search, sort, clipboard copy, and lazy loading.
 """
 
-import tkinter
-import tkinter.messagebox
-from tkinter import ttk, filedialog
 import logging
 import time
+import tkinter
+import tkinter.messagebox
+from tkinter import filedialog, ttk
 
-import otp_class
 import exceptions
 import extra_windows
+import otp_class
 
 logger = logging.getLogger(__name__)
 
@@ -238,12 +238,12 @@ class App(tkinter.Tk):
 
         # Copy button
         copy_btn = tkinter.Button(parent_frame, text="📋",
-                                  command=lambda u=uri: self.copy_to_clipboard(u))
+                                  command=lambda: self.copy_to_clipboard(uri))
         copy_btn.grid(row=row_index, column=1, padx=2, pady=2)
 
         # QR Code button
         qr_btn = tkinter.Button(parent_frame, text="🔲",
-                                command=lambda u=uri: self.show_qr_code(u))
+                                command=lambda: self.show_qr_code(uri))
         qr_btn.grid(row=row_index, column=2, padx=2, pady=2)
 
         # Name/URI
@@ -258,7 +258,7 @@ class App(tkinter.Tk):
 
         # Delete button
         delete_btn = tkinter.Button(parent_frame, text="Delete",
-                                    command=lambda u=uri: self.delete(u))
+                                    command=lambda: self.delete(uri))
         delete_btn.grid(row=row_index, column=5, padx=5, pady=2)
 
     def copy_to_clipboard(self, uri: str):
@@ -331,10 +331,7 @@ class App(tkinter.Tk):
         self.otp_numbers.clear()
 
         # Get filtered and sorted URIs
-        if self.current_filter:
-            uris = self.otp.search(self.current_filter)
-        else:
-            uris = list(self.otp.get_uri())
+        uris = self.otp.search(self.current_filter) if self.current_filter else list(self.otp.get_uri())
 
         # Sort URIs
         all_sorted = []
@@ -367,8 +364,9 @@ class App(tkinter.Tk):
                 self.create_row(uri, index)
 
             # Add "Load More" button
+            remaining = len(sorted_uris) - LAZY_LOAD_BATCH_SIZE
             load_more_btn = tkinter.Button(self.otp_list_frame,
-                                           text=f"Load More ({len(sorted_uris) - LAZY_LOAD_BATCH_SIZE} remaining)",
+                                           text=f"Load More ({remaining} remaining)",
                                            command=lambda: self._load_more_entries(sorted_uris))
             load_more_btn.grid(row=len(self.displayed_uris), column=0, columnspan=6, pady=10)
         else:
@@ -400,8 +398,9 @@ class App(tkinter.Tk):
 
         # Add "Load More" button if more entries remain
         if len(self.displayed_uris) < len(all_uris):
+            remaining = len(all_uris) - len(self.displayed_uris)
             load_more_btn = tkinter.Button(self.otp_list_frame,
-                                           text=f"Load More ({len(all_uris) - len(self.displayed_uris)} remaining)",
+                                           text=f"Load More ({remaining} remaining)",
                                            command=lambda: self._load_more_entries(all_uris))
             load_more_btn.grid(row=len(self.displayed_uris), column=0, columnspan=6, pady=10)
 
@@ -520,8 +519,9 @@ class App(tkinter.Tk):
         if filepath:
             try:
                 self.otp.export_to_json(filepath)
+                count = len(self.otp.decrypted_data)
                 tkinter.messagebox.showinfo("Export Successful",
-                                            f"Exported {len(self.otp.decrypted_data)} entries to:\n{filepath}")
+                                            f"Exported {count} entries to:\n{filepath}")
             except Exception as e:
                 tkinter.messagebox.showerror("Export Failed", f"Could not export: {e}")
 

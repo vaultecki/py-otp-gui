@@ -1,6 +1,8 @@
 """Tests for otp_class.OtpClass."""
 
 import json
+import os
+import time
 
 import pytest
 
@@ -201,3 +203,128 @@ def test_import_from_json_skips_invalid_entries(unlocked_otp, tmp_path):
 
     assert imported == 0
     assert skipped == 1
+
+
+def test_export_to_json_raises_when_locked(tmp_path):
+    otp = OtpClass()
+    otp.set_new_password("correct horse")
+    otp.save()
+
+    locked = OtpClass()
+    assert not locked.is_unlocked
+    with pytest.raises(exceptions.InvalidPasswordError):
+        locked.export_to_json(str(tmp_path / "export.json"))
+
+
+def test_import_from_json_raises_when_locked(tmp_path):
+    otp = OtpClass()
+    otp.set_new_password("correct horse")
+    otp.save()
+
+    locked = OtpClass()
+    import_file = tmp_path / "import.json"
+    import_file.write_text("{}")
+
+    with pytest.raises(exceptions.InvalidPasswordError):
+        locked.import_from_json(str(import_file))
+
+
+def test_export_to_json_without_metadata_omits_created_at(unlocked_otp, tmp_path):
+    unlocked_otp.add_uri(TOTP_URI_A, date=123.0)
+    export_file = tmp_path / "export.json"
+
+    unlocked_otp.export_to_json(str(export_file), include_metadata=False)
+
+    data = json.loads(export_file.read_text())
+    assert data[TOTP_URI_A] == {"uri": TOTP_URI_A}
+
+
+def test_export_to_json_empty_vault_writes_empty_object(unlocked_otp, tmp_path):
+    export_file = tmp_path / "export.json"
+    unlocked_otp.export_to_json(str(export_file))
+    assert json.loads(export_file.read_text()) == {}
+
+
+def test_export_to_json_raises_os_error_for_missing_parent_dir(unlocked_otp, tmp_path):
+    unlocked_otp.add_uri(TOTP_URI_A)
+    bad_path = tmp_path / "nonexistent_dir" / "export.json"
+
+    with pytest.raises(OSError):
+        unlocked_otp.export_to_json(str(bad_path))
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file permissions only")
+def test_export_to_json_sets_file_permissions_owner_only(unlocked_otp, tmp_path):
+    unlocked_otp.add_uri(TOTP_URI_A)
+    export_file = tmp_path / "export.json"
+
+    unlocked_otp.export_to_json(str(export_file))
+
+    mode = export_file.stat().st_mode & 0o777
+    assert mode == 0o600
+
+
+def test_import_from_json_missing_file_raises_os_error(unlocked_otp, tmp_path):
+    missing_file = tmp_path / "missing.json"
+    with pytest.raises(OSError):
+        unlocked_otp.import_from_json(str(missing_file))
+
+
+def test_import_from_json_invalid_json_raises(unlocked_otp, tmp_path):
+    bad_file = tmp_path / "bad.json"
+    bad_file.write_text("not valid json {{{")
+
+    with pytest.raises(json.JSONDecodeError):
+        unlocked_otp.import_from_json(str(bad_file))
+
+
+def test_import_from_json_overwrites_duplicates_when_not_skipping(unlocked_otp, tmp_path):
+    unlocked_otp.add_uri(TOTP_URI_A, date=1.0)
+    import_file = tmp_path / "import.json"
+    import_file.write_text(json.dumps({TOTP_URI_A: {"uri": TOTP_URI_A, "created_at": 999.0}}))
+
+    imported, skipped = unlocked_otp.import_from_json(str(import_file), skip_duplicates=False)
+
+    assert imported == 1
+    assert skipped == 0
+    assert unlocked_otp.get_entry(TOTP_URI_A).created_at == 999.0
+
+
+def test_import_from_json_missing_created_at_defaults_to_now(unlocked_otp, tmp_path):
+    import_file = tmp_path / "import.json"
+    import_file.write_text(json.dumps({TOTP_URI_A: {"uri": TOTP_URI_A}}))
+
+    before = time.time()
+    unlocked_otp.import_from_json(str(import_file))
+    after = time.time()
+
+    created_at = unlocked_otp.get_entry(TOTP_URI_A).created_at
+    assert before <= created_at <= after
+
+
+def test_import_from_json_skips_malformed_entry_value(unlocked_otp, tmp_path):
+    import_file = tmp_path / "import.json"
+    import_file.write_text(json.dumps({TOTP_URI_A: "not-a-dict"}))
+
+    imported, skipped = unlocked_otp.import_from_json(str(import_file))
+
+    assert imported == 0
+    assert skipped == 1
+
+
+def test_export_then_import_roundtrip(unlocked_otp, tmp_path):
+    unlocked_otp.add_uri(TOTP_URI_A, date=10.0)
+    unlocked_otp.add_uri(TOTP_URI_B, date=20.0)
+    export_file = tmp_path / "export.json"
+    unlocked_otp.export_to_json(str(export_file))
+
+    unlocked_otp.delete_uri(TOTP_URI_A)
+    unlocked_otp.delete_uri(TOTP_URI_B)
+    assert unlocked_otp.decrypted_data == {}
+
+    imported, skipped = unlocked_otp.import_from_json(str(export_file))
+
+    assert imported == 2
+    assert skipped == 0
+    assert unlocked_otp.get_entry(TOTP_URI_A).created_at == 10.0
+    assert unlocked_otp.get_entry(TOTP_URI_B).created_at == 20.0

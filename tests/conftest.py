@@ -22,6 +22,6 @@ def isolated_config_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(
         config_manager.ConfigManager,
         "_get_config_path",
-        staticmethod(lambda app_name: str(tmp_path)),
+        staticmethod(lambda app_name: tmp_path),
     )
     return tmp_path

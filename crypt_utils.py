@@ -11,10 +11,10 @@ encryption using Argon2 key derivation and XSalsa20-Poly1305 authenticated encry
 import base64
 import logging
 
+import nacl.exceptions
+import nacl.pwhash
 import nacl.secret
 import nacl.utils
-import nacl.pwhash
-import nacl.exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -196,7 +196,7 @@ class CryptoUtils:
             return decoded
         except Exception as e:
             logger.error(f"Base64 decoding failed: {e}")
-            raise ValueError(f"Ungültiger Base64 String: {e}")
+            raise ValueError(f"Ungültiger Base64 String: {e}") from e
 
 
 if __name__ == '__main__':
@@ -211,7 +211,7 @@ if __name__ == '__main__':
     password = "test_password_1234"
     plaintext = b"Secret message for encryption test"
 
-    logger.info(f"Original data: {plaintext}")
+    logger.info(f"Original data: {plaintext!r}")
 
     # Generate salt and derive key
     salt = CryptoUtils.generate_salt()
@@ -225,7 +225,7 @@ if __name__ == '__main__':
     # Decrypt with same key
     key2 = CryptoUtils.derive_key(password, salt)
     decrypted = CryptoUtils.decrypt(encrypted, key2)
-    logger.info(f"Decrypted: {decrypted}")
+    logger.info(f"Decrypted: {decrypted!r}")
 
     # Verify
     if plaintext == decrypted:

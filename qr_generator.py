@@ -9,8 +9,9 @@ This module generates QR codes that can be scanned by authenticator apps.
 
 import logging
 from typing import Optional
-from PIL import Image, ImageTk
+
 import qrcode
+from PIL import Image, ImageTk
 
 logger = logging.getLogger(__name__)
 
